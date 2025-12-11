@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.permacore.iam.mapper.RoleMapper">
+
+    <!-- 查询角色的所有后代角色ID（包含自身） -->
+    <select id="getDescendantRoleIds" resultType="java.lang.Long">
+        WITH RECURSIVE role_tree AS (
+        -- 锚点：当前角色
+        SELECT #{roleId} AS role_id
+        UNION ALL
+        -- 递归：查询子角色
+        SELECT ri.descendant_id
+        FROM sys_role_inheritance ri
+        INNER JOIN role_tree rt ON ri.ancestor_id = rt.role_id
+        )
+        SELECT DISTINCT role_id FROM role_tree
+    </select>
+
+    <!-- 查询角色的所有祖先角色ID（包含自身） -->
+    <select id="getAncestorRoleIds" resultType="java.lang.Long">
+        WITH RECURSIVE role_tree AS (
+        -- 锚点：当前角色
+        SELECT #{roleId} AS role_id
+        UNION ALL
+        -- 递归：查询父角色
+        SELECT ri.ancestor_id
+        FROM sys_role_inheritance ri
+        INNER JOIN role_tree rt ON ri.descendant_id = rt.role_id
+        )
+        SELECT DISTINCT role_id FROM role_tree
+    </list>
+</mapper>

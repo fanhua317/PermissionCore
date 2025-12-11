@@ -1,0 +1,25 @@
+{
+  "name": "PermaCore-IAM-Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "enabled": true
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "tokenType",
+      "value": "Bearer",
+      "enabled": true
+    }
+  ]
+}

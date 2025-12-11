@@ -5,17 +5,21 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Removed parent to avoid requiring download of spring-boot-starter-parent in restricted environments.
-         We'll use explicit versions for Spring Boot artifacts and the plugin below. -->
-
+    <!-- Converted to multi-module parent POM -->
     <groupId>com.permacore</groupId>
     <artifactId>permacore-iam</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>PermaCore IAM</name>
     <description>企业级RBAC3权限管理系统</description>
 
+    <modules>
+        <module>codegen</module>
+    </modules>
+
     <properties>
-        <java.version>21</java.version>
+        <!-- 编译为Java 8以兼容本地JDK环境（你的机器至少有 javac 可用的 JDK） -->
+        <java.version>8</java.version>
         <!-- 升级到兼容Spring Boot 3.2.x的最新版 -->
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jwt.version>0.12.5</jwt.version>
@@ -72,6 +76,13 @@
             <version>${spring-boot.version}</version>
         </dependency>
 
+        <!-- Swagger annotations (用于@ApiModel, @ApiModelProperty) -->
+        <dependency>
+            <groupId>io.swagger</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>1.6.8</version>
+        </dependency>
+
         <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -98,10 +109,17 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
 
-        <!-- MyBatis Plus 代码生成器（修正版） -->
+        <!-- Ensure a single mybatis-plus extension/core version is used (avoid transitive conflicts) -->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-generator</artifactId>
+            <artifactId>mybatis-plus-extension</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+
+        <!-- Explicit core dependency to guarantee a single version on the compile classpath -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-core</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
 
@@ -124,13 +142,6 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>${hutool.version}</version>
-        </dependency>
-
-        <!-- Freemarker模板引擎（用于代码生成器） -->
-        <dependency>
-            <groupId>org.freemarker</groupId>
-            <artifactId>freemarker</artifactId>
-            <version>2.3.33</version>
         </dependency>
 
         <!-- OpenAPI / Swagger (add missing io.swagger.v3.oas.models classes) -->
@@ -176,11 +187,10 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <release>21</release>
+                    <release>8</release>
                     <!-- Force forking an external javac to avoid "No compiler is provided" when Maven
-                         is started with a JRE; set executable to the JDK you installed. -->
+                         is started with a JRE; keep forking but DO NOT require JAVA_HOME to be set explicitly. -->
                     <fork>true</fork>
-                    <executable>C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot\bin\javac.exe</executable>
                 </configuration>
             </plugin>
             <plugin>
