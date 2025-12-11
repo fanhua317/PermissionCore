@@ -1,42 +1,75 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-        <modelVersion>4.0.0</modelVersion>
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-       <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.4</version>
-        <relativePath/> <!-- lookup parent from repository -->
-       </parent>
+    <!-- Removed parent to avoid requiring download of spring-boot-starter-parent in restricted environments.
+         We'll use explicit versions for Spring Boot artifacts and the plugin below. -->
 
-        <groupId>com.permacore</groupId>
-        <artifactId>permacore-iam</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
-        <name> PermaCore IAM</name>
-        <description> 企业级RBAC3权限管理系统 </description>
+    <groupId>com.permacore</groupId>
+    <artifactId>permacore-iam</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>PermaCore IAM</name>
+    <description>企业级RBAC3权限管理系统</description>
 
     <properties>
         <java.version>21</java.version>
-        <mybatis-plus.version>3.5.6</mybatis-plus.version>
+        <!-- 升级到兼容Spring Boot 3.2.x的最新版 -->
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jwt.version>0.12.5</jwt.version>
-        <swagger.version>2.3.0</swagger.version>
         <redisson.version>3.32.0</redisson.version>
         <hutool.version>5.8.28</hutool.version>
+        <!-- 明确版本，避免父POM不可用或镜像问题导致解析失败 -->
+        <caffeine.version>3.1.8</caffeine.version>
+        <lombok.version>1.18.26</lombok.version>
+        <!-- Spring Boot version used for explicit dependency/plugin versions -->
+        <spring-boot.version>3.2.9</spring-boot.version>
+        <!-- keep spring-boot.version defined above -->
     </properties>
 
+    <!-- Import Spring Boot dependency management (acts like the parent BOM) -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- 使用 Maven Central -->
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+    </repositories>
+
     <dependencies>
-        <!-- Web组件 -->
+        <!-- Web组件 (explicit version because parent was removed) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring-boot.version}</version>
+            <exclusions>
+                <!-- 排除有漏洞的tomcat版本 -->
+                <exclusion>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-websocket</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Security核心 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <!-- JWT -->
@@ -58,10 +91,17 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- MyBatis Plus -->
+        <!-- MyBatis Plus 核心 -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+
+        <!-- MyBatis Plus 代码生成器（修正版） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-generator</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
 
@@ -79,24 +119,39 @@
             <version>${redisson.version}</version>
         </dependency>
 
-        <!-- Swagger -->
-        <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-            <version>${swagger.version}</version>
-        </dependency>
-
-        <!-- 工具库 -->
+        <!-- Hutool工具库 -->
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>${hutool.version}</version>
         </dependency>
 
+        <!-- Freemarker模板引擎（用于代码生成器） -->
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+            <version>2.3.33</version>
+        </dependency>
+
+        <!-- OpenAPI / Swagger (add missing io.swagger.v3.oas.models classes) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.1.0</version>
+        </dependency>
+
+        <!-- Caffeine本地缓存 -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -115,9 +170,23 @@
 
     <build>
         <plugins>
+            <!-- Ensure correct Java compilation level -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>21</release>
+                    <!-- Force forking an external javac to avoid "No compiler is provided" when Maven
+                         is started with a JRE; set executable to the JDK you installed. -->
+                    <fork>true</fork>
+                    <executable>C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot\bin\javac.exe</executable>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
                 <configuration>
                     <excludes>
                         <exclude>
@@ -125,6 +194,19 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Exec plugin to run the code generator during generate-sources -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <!-- Removed automatic execution bound to lifecycle because the generator
+                     class is part of the project and must be compiled before running.
+                     Run it manually with: mvn -DskipTests compile exec:java -Dexec.mainClass=com.permacore.codegen.CodeGeneratorMain -->
+                <configuration>
+                    <mainClass>com.permacore.codegen.CodeGeneratorMain</mainClass>
                 </configuration>
             </plugin>
         </plugins>
