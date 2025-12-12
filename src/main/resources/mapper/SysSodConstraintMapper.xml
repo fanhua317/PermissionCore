@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.permacore.iam.mapper.SysSodConstraintMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.permacore.iam.domain.entity.SysSodConstraintEntity">
+        <id column="id" property="id" />
+        <result column="constraint_name" property="constraintName" />
+        <result column="role_set" property="roleSet" />
+        <result column="constraint_type" property="constraintType" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, constraint_name, role_set, constraint_type, create_time
+    </sql>
+
+</mapper>

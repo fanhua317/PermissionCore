@@ -27,16 +27,14 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="abbdb506-a2ca-42b7-9c52-58250892a12e">
-      <console name="permacore_iam" type="STANDARD" schema="permacore_iam" session="Main" />
+      <console name="permacore_iam" type="STANDARD" schema="permacore_iam" session="Main"><![CDATA[SELECT * FROM permacore_iam.sys_user WHERE username = 'admin';]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">
     <last-used-providers />
   </component>
   <component name="DBNavigator.Project.DatabaseFileManager">
-    <open-files>
-      <object connection-id="abbdb506-a2ca-42b7-9c52-58250892a12e" object-ref="consoles/permacore_iam" />
-    </open-files>
+    <open-files />
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
     <connection id="abbdb506-a2ca-42b7-9c52-58250892a12e" />

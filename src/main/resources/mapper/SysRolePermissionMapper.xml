@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.permacore.iam.mapper.SysRolePermissionMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.permacore.iam.domain.entity.SysRolePermissionEntity">
+        <id column="id" property="id" />
+        <result column="role_id" property="roleId" />
+        <result column="permission_id" property="permissionId" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, role_id, permission_id, create_time
+    </sql>
+
+    <!-- 根据角色ID集合查询权限ID -->
+    <select id="selectPermissionIdsByRoleIds" resultType="java.lang.Long">
+        SELECT DISTINCT permission_id FROM sys_role_permission
+        WHERE role_id IN
+        <foreach item="roleId" collection="roleIds" open="(" separator="," close=")">
+            #{roleId}
+        </foreach>
+    </select>
+
+    <!-- 根据角色ID删除 -->
+    <delete id="deleteByRoleId">
+        DELETE FROM sys_role_permission WHERE role_id = #{roleId}
+    </delete>
+
+    <!-- 批量插入 -->
+    <insert id="insertBatch">
+        INSERT INTO sys_role_permission (role_id, permission_id) VALUES
+        <foreach item="record" collection="records" separator=",">
+            (#{record.roleId}, #{record.permissionId})
+        </foreach>
+    </insert>
+
+</mapper>
