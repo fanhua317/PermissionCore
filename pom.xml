@@ -5,21 +5,19 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Converted to multi-module parent POM -->
+    <!-- Converted to single-module executable JAR (was previously an aggregator POM) -->
     <groupId>com.permacore</groupId>
     <artifactId>permacore-iam</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <packaging>jar</packaging>
     <name>PermaCore IAM</name>
     <description>企业级RBAC3权限管理系统</description>
 
-    <modules>
-        <module>codegen</module>
-    </modules>
+    <!-- Removed <modules> section so top-level sources under src/main/java will be compiled and packaged -->
 
     <properties>
-        <!-- 编译为Java 8以兼容本地JDK环境（你的机器至少有 javac 可用的 JDK） -->
-        <java.version>8</java.version>
+        <!-- 将编译版本从 Java 8 升级到 Java 17，以兼容 Spring Boot 3.x -->
+        <java.version>17</java.version>
         <!-- 升级到兼容Spring Boot 3.2.x的最新版 -->
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jwt.version>0.12.5</jwt.version>
@@ -76,6 +74,13 @@
             <version>${spring-boot.version}</version>
         </dependency>
 
+        <!-- AOP（用于 @Aspect、切面） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
+
         <!-- Swagger annotations (用于@ApiModel, @ApiModelProperty) -->
         <dependency>
             <groupId>io.swagger</groupId>
@@ -93,13 +98,11 @@
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <version>${jwt.version}</version>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
             <version>${jwt.version}</version>
-            <scope>runtime</scope>
         </dependency>
 
         <!-- MyBatis Plus 核心 -->
@@ -158,12 +161,30 @@
             <version>${caffeine.version}</version>
         </dependency>
 
-        <!-- Lombok -->
+        <!-- Jackson Java 8 Date/Time support -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- AspectJ 支持（切面注解） -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.9.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjrt</artifactId>
+            <version>1.9.9.1</version>
+        </dependency>
+
+        <!-- Lombok（只在编译/IDE生效） -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
-            <optional>true</optional>
+            <scope>compile</scope>
         </dependency>
 
         <!-- 测试 -->
@@ -187,10 +208,17 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <release>8</release>
+                    <release>17</release>
                     <!-- Force forking an external javac to avoid "No compiler is provided" when Maven
                          is started with a JRE; keep forking but DO NOT require JAVA_HOME to be set explicitly. -->
                     <fork>true</fork>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
@@ -198,15 +226,16 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
+                    <mainClass>com.permacore.iam.PermaCoreApplication</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
-
             <!-- Exec plugin to run the code generator during generate-sources -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

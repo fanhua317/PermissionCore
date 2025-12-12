@@ -8,8 +8,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,10 +27,11 @@ import java.util.stream.Collectors;
 /**
  * JWT授权过滤器（验证每次请求的Token）
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthorizationFilter.class);
 
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
@@ -50,26 +52,26 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             Claims claims = jwtUtil.parseToken(token);
             Long userId = Long.parseLong(claims.getSubject());
 
-            // 3. 验证JWT版本号（强制登出检测）
+            // 3. 验证JWT版本号（强制登出检测）- 仅在 Redis 可用时验证
             String tokenVersion = jwtUtil.getJtiFromToken(token);
             String cachedVersion = redisCacheUtil.getJwtVersion(userId);
 
-            if (cachedVersion == null) {
-                log.warn("用户未登录或已登出: userId={}", userId);
-                return; // 继续走过滤器链，最终由Security返回401
-            }
-
-            if (!tokenVersion.equals(cachedVersion)) {
+            // 如果缓存版本存在且不匹配，说明被强制登出
+            if (cachedVersion != null && !tokenVersion.equals(cachedVersion)) {
                 log.warn("Token版本不匹配，可能已被强制登出: userId={}", userId);
+                filterChain.doFilter(request, response);
                 return;
             }
+            // 如果 cachedVersion 为 null，可能是 Redis 不可用或首次登录，允许通过
 
             // 4. 构建认证信息
             String permissionsStr = claims.get("permissions", String.class);
             List<SimpleGrantedAuthority> authorities = Collections.emptyList();
 
             if (StrUtil.isNotBlank(permissionsStr)) {
-                authorities = Arrays.stream(permissionsStr.replaceAll("[\\[\\]\"]", "").split(","))
+                // 先移除可能的方括号与双引号，然后按照逗号拆分
+                String cleaned = permissionsStr.replace("[", "").replace("]", "").replace("\"", "");
+                authorities = Arrays.stream(cleaned.split(","))
                         .filter(StrUtil::isNotBlank)
                         .map(String::trim)
                         .map(SimpleGrantedAuthority::new)

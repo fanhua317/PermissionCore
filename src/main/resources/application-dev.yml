@@ -1,0 +1,54 @@
+# 开发环境配置 - 无需 Redis
+# 使用方式: java -jar xxx.jar --spring.profiles.active=dev
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: permacore-iam
+
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/permacore_iam?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+
+  # 禁用 Redis 自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+# 禁用 Redisson Spring Boot Starter
+redisson:
+  enabled: false
+
+# MyBatis Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.permacore.iam.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT配置
+jwt:
+  secret: YourVeryLongAndSecureJwtSecretKeyForPermaCoreIAMSystem2024
+  expiration: 86400000
+
+# 日志级别
+logging:
+  level:
+    com.permacore: debug
+

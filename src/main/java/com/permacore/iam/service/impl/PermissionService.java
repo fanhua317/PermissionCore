@@ -1,8 +1,8 @@
 package com.permacore.iam.service.impl;
 
-import com.permacore.iam.mapper.PermissionMapper;
-import com.permacore.iam.mapper.RolePermissionMapper;
-import com.permacore.iam.mapper.UserRoleMapper;
+import com.permacore.iam.mapper.SysPermissionMapper;
+import com.permacore.iam.mapper.SysRolePermissionMapper;
+import com.permacore.iam.mapper.SysUserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,9 +19,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class PermissionService {
 
-    private final UserRoleMapper userRoleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
-    private final PermissionMapper permissionMapper;
+    private final SysUserRoleMapper userRoleMapper;
+    private final SysRolePermissionMapper rolePermissionMapper;
+    private final SysPermissionMapper permissionMapper;
 
     /**
      * 获取用户的所有权限（包含角色继承的权限）

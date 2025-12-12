@@ -1,11 +1,8 @@
 package com.permacore.iam.domain.vo;
 
-import lombok.Getter;
-
 /**
- * 响应码枚举
+ * 响应码枚举（显式 Getter，避免 Lombok 依赖）
  */
-@Getter
 public enum ResultCode {
     // 成功
     SUCCESS(200, "操作成功"),
@@ -34,5 +31,13 @@ public enum ResultCode {
     ResultCode(Integer code, String msg) {
         this.code = code;
         this.msg = msg;
+    }
+
+    public Integer getCode() {
+        return code;
+    }
+
+    public String getMsg() {
+        return msg;
     }
 }

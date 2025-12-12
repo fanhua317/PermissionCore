@@ -24,4 +24,9 @@ public class BusinessException extends RuntimeException {
         super(message);
         this.code = resultCode.getCode();
     }
+
+    // 显式提供 getter，避免 Lombok 注解未生效时编译报错
+    public Integer fetchCode() {
+        return this.code;
+    }
 }

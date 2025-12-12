@@ -1,7 +1,6 @@
 package com.permacore.iam.security.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.permacore.iam.domain.entity.UserEntity;
 import com.permacore.iam.domain.vo.LoginVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.utils.JwtUtil;
@@ -9,8 +8,8 @@ import com.permacore.iam.utils.RedisCacheUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -30,13 +29,13 @@ import java.util.concurrent.TimeUnit;
  * JWT认证过滤器（处理登录请求）
  * 路径: POST /api/auth/login
  */
-@Slf4j
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
 
-    private final AuthenticationManager authenticationManager;
-    private final JwtUtil jwtUtil;
-    private final RedisCacheUtil redisCacheUtil;
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
+    private AuthenticationManager authenticationManager;
+    private JwtUtil jwtUtil;
+    private RedisCacheUtil redisCacheUtil;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public JwtAuthenticationFilter() {
@@ -46,13 +45,22 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         );
     }
 
+    public JwtAuthenticationFilter(AuthenticationManager authenticationManager, JwtUtil jwtUtil, RedisCacheUtil redisCacheUtil) {
+        this.authenticationManager = authenticationManager;
+        this.jwtUtil = jwtUtil;
+        this.redisCacheUtil = redisCacheUtil;
+        setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher("/api/auth/login", "POST"));
+        // 确保父类也持有 authenticationManager，用于 afterPropertiesSet 校验
+        super.setAuthenticationManager(authenticationManager);
+    }
+
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
             throws AuthenticationException {
         try {
             // 1. 解析请求体
             LoginVO loginVO = objectMapper.readValue(request.getInputStream(), LoginVO.class);
-            log.info("用户登录尝试: username={}", loginVO.getUsername());
+            log.info("用户登录尝试: username={} ", loginVO.getUsername());
 
             // 2. 创建认证令牌
             UsernamePasswordAuthenticationToken token =

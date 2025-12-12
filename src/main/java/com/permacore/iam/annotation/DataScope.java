@@ -18,40 +18,10 @@ public @interface DataScope {
     /**
      * 数据权限类型
      */
-    DataScopeType type() default DataScopeType.DEPT_AND_CHILD;
+    com.permacore.iam.annotation.DataScopeType type() default com.permacore.iam.annotation.DataScopeType.DEPT_AND_CHILD;
 
     /**
      * 自定义条件
      */
     String customCondition() default "";
-}
-
-/**
- * 数据权限类型枚举
- */
-enum DataScopeType {
-    /**
-     * 全部数据（仅超级管理员）
-     */
-    ALL,
-
-    /**
-     * 当前部门及子部门
-     */
-    DEPT_AND_CHILD,
-
-    /**
-     * 仅当前部门
-     */
-    DEPT_ONLY,
-
-    /**
-     * 仅自己创建的数据
-     */
-    SELF,
-
-    /**
-     * 自定义
-     */
-    CUSTOM
 }

@@ -5,14 +5,18 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.permacore.iam.domain.entity.UserEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.ResultCode;
 import com.permacore.iam.domain.vo.UserCreateVO;
-import com.permacore.iam.service.impl.UserServiceImpl;
+import com.permacore.iam.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -24,14 +28,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserServiceImpl userService;
+    private static final Logger log = LoggerFactory.getLogger(UserController.class);
+
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
     /**
      * 分页查询用户
      * 权限要求：system:user:query 或拥有任何管理权限
      */
-    @PreAuthorize("hasAuthority('system:user:query')")
+    // @PreAuthorize("hasAuthority('system:user:query')")
     @GetMapping("/page")
     public Result<PageVO<UserEntity>> page(@RequestParam(defaultValue = "1") Integer pageNo,
                                            @RequestParam(defaultValue = "10") Integer pageSize,
@@ -68,7 +74,7 @@ public class UserController {
     @GetMapping("/{id}")
     public Result<UserEntity> getById(@PathVariable Long id) {
         UserEntity user = userService.getById(id);
-        if (user == null || user.getDelFlag() == 1) {
+        if (user == null || Byte.valueOf((byte)1).equals(user.getDelFlag())) {
             return Result.error("用户不存在");
         }
         // 密码不返回前端

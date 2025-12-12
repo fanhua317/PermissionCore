@@ -1,16 +1,12 @@
 package com.permacore.iam.domain.vo;
 
-import lombok.Data;
-import lombok.experimental.Accessors;
-
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 统一响应结果
+ * 统一响应结果（显式实现 Getter/Setter，避免 Lombok 依赖问题）
  */
-@Data
-@Accessors(chain = true)
 public class Result<T> implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -32,10 +28,46 @@ public class Result<T> implements Serializable {
     /**
      * 时间戳
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
 
     public Result() {
         this.timestamp = LocalDateTime.now();
+    }
+
+    public Integer getCode() {
+        return code;
+    }
+
+    public Result<T> setCode(Integer code) {
+        this.code = code;
+        return this;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    public Result<T> setMsg(String msg) {
+        this.msg = msg;
+        return this;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public Result<T> setData(T data) {
+        this.data = data;
+        return this;
+    }
+
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
 
     public static <T> Result<T> success() {
@@ -66,6 +98,12 @@ public class Result<T> implements Serializable {
     public static <T> Result<T> error(ResultCode resultCode, String message) {
         return new Result<T>()
                 .setCode(resultCode.getCode())
+                .setMsg(message);
+    }
+
+    public static <T> Result<T> error(Integer code, String message) {
+        return new Result<T>()
+                .setCode(code)
                 .setMsg(message);
     }
 }

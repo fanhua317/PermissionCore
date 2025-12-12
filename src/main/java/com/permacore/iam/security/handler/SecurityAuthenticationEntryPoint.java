@@ -6,8 +6,9 @@ import com.permacore.iam.domain.vo.ResultCode;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
@@ -20,10 +21,11 @@ import java.io.IOException;
  *
  * @Component 注册为Spring Bean，由SecurityConfig配置使用
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class SecurityAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityAuthenticationEntryPoint.class);
 
     private final ObjectMapper objectMapper;
 

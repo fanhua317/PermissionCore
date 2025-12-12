@@ -4,13 +4,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.permacore.iam.domain.entity.RoleEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.service.SysRoleService;
 import com.permacore.iam.service.impl.PermissionService;
-import com.permacore.iam.service.impl.RoleServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 角色管理控制器
@@ -20,7 +22,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RoleController {
 
-    private final RoleServiceImpl roleService;
+    private static final Logger log = LoggerFactory.getLogger(RoleController.class);
+
+    private final SysRoleService roleService;
     private final PermissionService permissionService;
 
     /**
@@ -31,7 +35,7 @@ public class RoleController {
     public Result<PageVO<RoleEntity>> page(@RequestParam(defaultValue = "1") Integer pageNo,
                                            @RequestParam(defaultValue = "10") Integer pageSize,
                                            @RequestParam(required = false) String roleName) {
-        Page<RoleEntity> page = roleService.page(pageNo, pageSize, roleName);
+        Page<RoleEntity> page = roleService.pageRoles(pageNo, pageSize, roleName);
         return Result.success(PageVO.of(page));
     }
 
@@ -41,8 +45,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('system:role:query')")
     @GetMapping("/list")
     public Result<List<RoleEntity>> list() {
-        List<RoleEntity> roles = roleService.list();
-        return Result.success(roles);
+        return Result.success(roleService.listRoles());
     }
 
     /**
@@ -51,7 +54,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('role:add')")
     @PostMapping
     public Result<Void> create(@RequestBody RoleEntity role) {
-        roleService.save(role);
+        roleService.saveRole(role);
         log.info("创建角色: {}", role.getRoleName());
         return Result.success();
     }
@@ -63,7 +66,7 @@ public class RoleController {
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody RoleEntity role) {
         role.setId(id);
-        roleService.updateById(role);
+        roleService.updateRole(role);
         log.info("更新角色: roleId={}", id);
         return Result.success();
     }
@@ -96,8 +99,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('system:role:query')")
     @GetMapping("/{roleId}/permissions")
     public Result<List<Long>> getRolePermissions(@PathVariable Long roleId) {
-        List<Long> permissionIds = roleService.getRolePermissionIds(roleId);
-        return Result.success(permissionIds);
+        return Result.success(roleService.getRolePermissionIds(roleId));
     }
 
     /**
@@ -118,7 +120,6 @@ public class RoleController {
     @PreAuthorize("hasAuthority('system:role:query')")
     @GetMapping("/{roleId}/descendants")
     public Result<List<Long>> getDescendants(@PathVariable Long roleId) {
-        List<Long> descendantIds = roleService.getDescendantRoleIds(roleId);
-        return Result.success(descendantIds);
+        return Result.success(roleService.getDescendantRoleIds(roleId));
     }
 }

@@ -40,7 +40,7 @@ const handleLogin = async () => {
   }
 
   try {
-    const res = await axios.post('http://localhost:8080/api/auth/login', loginForm);
+    const res = await axios.post('http://localhost:54321/api/auth/login', loginForm);
     const { accessToken, refreshToken } = res.data.data;
     userStore.setToken(accessToken, refreshToken);
     ElMessage.success('登录成功');

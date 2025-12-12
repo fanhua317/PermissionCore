@@ -1,13 +1,20 @@
 package com.permacore.iam.utils;
 
 import cn.hutool.core.util.IdUtil;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
@@ -16,9 +23,10 @@ import java.util.Map;
  * JWT工具类
  * 支持Token生成、验证、刷新、强制失效
  */
-@Slf4j
 @Component
 public class JwtUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 
     @Value("${jwt.secret}")
     private String secret;
@@ -30,7 +38,8 @@ public class JwtUtil {
     private Long refreshExpiration;
 
     private SecretKey getSecretKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        byte[] keyBytes = secret.length() % 4 == 0 ? Decoders.BASE64.decode(secret) : secret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
@@ -65,35 +74,77 @@ public class JwtUtil {
     }
 
     /**
-     * 解析Token
+     * 生成RefreshToken (带claims)
+     * @param claims 自定义载荷
+     * @return Token字符串
+     */
+    public String generateRefreshToken(Map<String, Object> claims) {
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(String.valueOf(claims.get("userId")))
+                .setId(IdUtil.fastUUID())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration * 1000))
+                .signWith(getSecretKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * 从Token中获取版本号(JTI作为版本号)
+     * @param token Token字符串
+     * @return 版本号
+     */
+    public String getVersionFromToken(String token) {
+        return parseToken(token).getId();
+    }
+
+    /**
+     * 解析Token（使用反射以兼容不同版本的 jjwt）
      * @param token Token字符串
      * @return Claims
      */
     public Claims parseToken(String token) {
         try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSecretKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+            // 通过反射调用 io.jsonwebtoken.Jwts.parserBuilder().setSigningKey(...).build().parseClaimsJws(token).getBody()
+            Class<?> jwtsClass = Class.forName("io.jsonwebtoken.Jwts");
+            Method parserBuilderMethod = jwtsClass.getMethod("parserBuilder");
+            Object parserBuilder = parserBuilderMethod.invoke(null);
+            // setSigningKey
+            Method setSigningKey = parserBuilder.getClass().getMethod("setSigningKey", Object.class);
+            setSigningKey.invoke(parserBuilder, getSecretKey());
+            // build()
+            Method build = parserBuilder.getClass().getMethod("build");
+            Object parser = build.invoke(parserBuilder);
+            Method parseClaimsJws = parser.getClass().getMethod("parseClaimsJws", String.class);
+            Object jws = parseClaimsJws.invoke(parser, token);
+            Method getBody = jws.getClass().getMethod("getBody");
+            return (Claims) getBody.invoke(jws);
         } catch (ExpiredJwtException e) {
             log.warn("Token已过期: {}", token);
             throw new RuntimeException("Token已过期，请重新登录");
         } catch (JwtException e) {
             log.error("Token解析失败: {}", token, e);
             throw new RuntimeException("Token无效");
+        } catch (Exception e) {
+            log.error("反射解析Token失败: {}", token, e);
+            throw new RuntimeException("Token解析错误");
         }
     }
 
     /**
-     * 验证Token是否有效
+     * 验证Token是否有效（反射实现）
      */
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(getSecretKey())
-                    .build()
-                    .parseClaimsJws(token);
+            Class<?> jwtsClass = Class.forName("io.jsonwebtoken.Jwts");
+            Method parserBuilderMethod = jwtsClass.getMethod("parserBuilder");
+            Object parserBuilder = parserBuilderMethod.invoke(null);
+            Method setSigningKey = parserBuilder.getClass().getMethod("setSigningKey", Object.class);
+            setSigningKey.invoke(parserBuilder, getSecretKey());
+            Method build = parserBuilder.getClass().getMethod("build");
+            Object parser = build.invoke(parserBuilder);
+            Method parseClaimsJws = parser.getClass().getMethod("parseClaimsJws", String.class);
+            parseClaimsJws.invoke(parser, token);
             return true;
         } catch (Exception e) {
             log.warn("Token验证失败: {}", e.getMessage());
@@ -105,16 +156,14 @@ public class JwtUtil {
      * 从Token中获取用户ID
      */
     public Long getUserIdFromToken(String token) {
-        Claims claims = parseToken(token);
-        return Long.parseLong(claims.getSubject());
+        return Long.parseLong(parseToken(token).getSubject());
     }
 
     /**
      * 从Token中获取JWT唯一标识(JTI)
      */
     public String getJtiFromToken(String token) {
-        Claims claims = parseToken(token);
-        return claims.getId();
+        return parseToken(token).getId();
     }
 
     /**
@@ -122,10 +171,8 @@ public class JwtUtil {
      */
     public boolean isTokenNearExpiration(String token) {
         try {
-            Claims claims = parseToken(token);
-            Date expiration = claims.getExpiration();
-            long remainTime = expiration.getTime() - System.currentTimeMillis();
-            return remainTime < 5 * 60 * 1000; // 5分钟
+            Date expiration = parseToken(token).getExpiration();
+            return expiration.getTime() - System.currentTimeMillis() < 5 * 60 * 1000;
         } catch (Exception e) {
             return true;
         }
@@ -136,8 +183,7 @@ public class JwtUtil {
      */
     public long getTokenRemainTime(String token) {
         try {
-            Claims claims = parseToken(token);
-            Date expiration = claims.getExpiration();
+            Date expiration = parseToken(token).getExpiration();
             return (expiration.getTime() - System.currentTimeMillis()) / 1000;
         } catch (Exception e) {
             return 0;

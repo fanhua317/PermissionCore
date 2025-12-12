@@ -1,0 +1,81 @@
+server:
+  port: 54321
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: permacore-iam
+  
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/permacore_iam?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+  
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      database: 0
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: -1ms
+
+  # 排除 Redisson 的自动装配（当 app.redis.enabled=false 时可以避免尝试创建客户端）
+  autoconfigure:
+    exclude: org.redisson.spring.starter.RedissonAutoConfigurationV2
+
+# 是否启用 Redisson（本地开发默认关闭）
+app:
+  redis:
+    enabled: false
+
+# MyBatis Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.permacore.iam.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT配置
+jwt:
+  secret: PermaCore-IAM-SecretKey-2025-Enterprise-Grade-RBAC-System-Very-Long-Key-For-HS256
+  expiration: 7200
+  refresh-expiration: 604800
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.permacore.iam: DEBUG
+    com.permacore.iam.mapper: DEBUG
+
+# Springdoc OpenAPI配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /doc.html

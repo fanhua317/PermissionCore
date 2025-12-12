@@ -3,6 +3,12 @@ package com.permacore.iam.config;
 import com.permacore.iam.security.handler.SecurityAccessDeniedHandler;
 import com.permacore.iam.security.handler.SecurityAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
+import com.permacore.iam.service.UserService;
+import com.permacore.iam.security.filter.JwtAuthenticationFilter;
+import com.permacore.iam.security.filter.JwtAuthorizationFilter;
+import com.permacore.iam.security.filter.JwtAuthorizationOnceFilter;
+import com.permacore.iam.utils.JwtUtil;
+import com.permacore.iam.utils.RedisCacheUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,11 +38,13 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final UserServiceImpl userService;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final UserService userService;
     private final JwtAuthorizationFilter jwtAuthorizationFilter;
+    private final JwtAuthorizationOnceFilter jwtAuthorizationOnceFilter;
     private final SecurityAuthenticationEntryPoint authenticationEntryPoint;
     private final SecurityAccessDeniedHandler accessDeniedHandler;
+    private final JwtUtil jwtUtil;
+    private final RedisCacheUtil redisCacheUtil;
 
     /**
      * 密码加密器
@@ -61,7 +69,7 @@ public class SecurityConfig {
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userService);
+        provider.setUserDetailsService((org.springframework.security.core.userdetails.UserDetailsService) userService);
         provider.setPasswordEncoder(passwordEncoder());
         // 隐藏"UserNotFoundException"详细，防止用户名枚举攻击
         provider.setHideUserNotFoundExceptions(false);
@@ -69,10 +77,18 @@ public class SecurityConfig {
     }
 
     /**
+     * 注入 JwtAuthenticationFilter 为 Bean，以便在 filterChain 中使用
+     */
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(AuthenticationManager authenticationManager) {
+        return new JwtAuthenticationFilter(authenticationManager, jwtUtil, redisCacheUtil);
+    }
+
+    /**
      * 核心过滤器链配置
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationManager authenticationManager) throws Exception {
         http
                 // 1. 禁用CSRF（JWT无状态，不需要CSRF）
                 .csrf(AbstractHttpConfigurer::disable)
@@ -94,6 +110,8 @@ public class SecurityConfig {
                                 "/doc.html",
                                 "/webjars/**",
                                 "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/actuator/**",
                                 "/test/**"
                         ).permitAll()
                         // 其他请求都需要认证
@@ -107,8 +125,9 @@ public class SecurityConfig {
                 )
 
                 // 6. 添加JWT过滤器
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(jwtAuthorizationFilter, LogoutFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter(authenticationManager), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtAuthorizationFilter, LogoutFilter.class)
+                .addFilterAfter(jwtAuthorizationOnceFilter, LogoutFilter.class);
 
         return http.build();
     }

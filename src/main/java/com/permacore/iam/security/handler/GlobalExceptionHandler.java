@@ -2,7 +2,8 @@ package com.permacore.iam.security.handler;
 
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.domain.vo.ResultCode;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,9 +21,11 @@ import java.util.stream.Collectors;
 /**
  * 全局异常处理器
  */
-@Slf4j
 @RestControllerAdvice
+@SuppressWarnings("unused")
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * 处理业务异常
@@ -30,7 +33,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handleBusinessException(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
-        return Result.error(e.getCode(), e.getMessage());
+        return Result.error(e.fetchCode(), e.getMessage());
     }
 
     /**
@@ -75,9 +78,9 @@ public class GlobalExceptionHandler {
     public Result<Void> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         log.error("数据库约束异常", e);
         if (e.getCause() instanceof SQLIntegrityConstraintViolationException) {
-            return Result.error("数据已存在，请勿重复操作");
+            return Result.error(ResultCode.BAD_REQUEST, "数据已存在，请勿重复操作");
         }
-        return Result.error("数据库操作失败");
+        return Result.error(ResultCode.BAD_REQUEST, "数据库操作失败");
     }
 
     /**
@@ -87,6 +90,6 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<Void> handleException(Exception e) {
         log.error("系统异常: ", e);
-        return Result.error(ResultCode.ERROR.getMsg());
+        return Result.error(ResultCode.ERROR);
     }
 }
