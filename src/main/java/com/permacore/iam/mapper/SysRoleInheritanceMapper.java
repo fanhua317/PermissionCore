@@ -3,6 +3,9 @@ package com.permacore.iam.mapper;
 import com.permacore.iam.domain.entity.SysRoleInheritanceEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.Set;
 
 /**
  * <p>
@@ -15,4 +18,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface SysRoleInheritanceMapper extends BaseMapper<SysRoleInheritanceEntity> {
 
+    Set<Long> selectAncestorIdsByDescendantId(@Param("descendantId") Long descendantId);
 }

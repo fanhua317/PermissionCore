@@ -1,9 +1,10 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios from 'axios';
+import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage } from 'element-plus';
 import router from '../router';
 
 const service = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: '', // Use relative path for proxy
   timeout: 10000,
 });
 
@@ -33,11 +34,11 @@ service.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       originalRequest._retry = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const res = await axios.post('http://localhost:8080/api/auth/refresh', {
+        const res = await axios.post('/api/auth/refresh', {
           refreshToken,
         });
         const { accessToken, refreshToken: newRefreshToken } = res.data.data;

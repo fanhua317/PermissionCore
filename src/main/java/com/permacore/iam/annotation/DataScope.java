@@ -18,7 +18,7 @@ public @interface DataScope {
     /**
      * 数据权限类型
      */
-    com.permacore.iam.annotation.DataScopeType type() default com.permacore.iam.annotation.DataScopeType.DEPT_AND_CHILD;
+    DataScopeType type() default DataScopeType.DEPT_AND_CHILD;
 
     /**
      * 自定义条件

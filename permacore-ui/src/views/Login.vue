@@ -24,7 +24,7 @@ import { ref, reactive } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useUserStore } from '@/store/user';
 import router from '@/router';
-import axios from 'axios';
+import service from '@/utils/request';
 
 const userStore = useUserStore();
 
@@ -39,14 +39,14 @@ const handleLogin = async () => {
     return;
   }
 
-  try {
-    const res = await axios.post('http://localhost:54321/api/auth/login', loginForm);
-    const { accessToken, refreshToken } = res.data.data;
+try {
+    const data: any = await service.post('/api/auth/login', loginForm);
+    const { accessToken, refreshToken } = data;
     userStore.setToken(accessToken, refreshToken);
     ElMessage.success('登录成功');
     router.push('/');
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.msg || '登录失败');
+    console.error('登录失败', error);
   }
 };
 </script>

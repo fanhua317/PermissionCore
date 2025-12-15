@@ -2,7 +2,7 @@
 # 使用方式: java -jar xxx.jar --spring.profiles.active=dev
 
 server:
-  port: 8080
+  port: 8081
 
 spring:
   application:
@@ -13,7 +13,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/permacore_iam?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: root
+    password: 123456
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -23,10 +23,6 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
-
-# 禁用 Redisson Spring Boot Starter
-redisson:
-  enabled: false
 
 # MyBatis Plus配置
 mybatis-plus:
@@ -51,4 +47,3 @@ jwt:
 logging:
   level:
     com.permacore: debug
-

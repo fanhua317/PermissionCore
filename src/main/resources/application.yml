@@ -12,7 +12,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/permacore_iam?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: root
+    password: 123456
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -35,9 +35,6 @@ spring:
           min-idle: 5
           max-wait: -1ms
 
-  # 排除 Redisson 的自动装配（当 app.redis.enabled=false 时可以避免尝试创建客户端）
-  autoconfigure:
-    exclude: org.redisson.spring.starter.RedissonAutoConfigurationV2
 
 # 是否启用 Redisson（本地开发默认关闭）
 app:

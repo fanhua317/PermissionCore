@@ -1,14 +1,15 @@
 package com.permacore.iam.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.permacore.iam.domain.entity.SysUserEntity;
-import com.permacore.iam.domain.entity.UserEntity;
 import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.utils.RedisCacheUtil;
+import com.permacore.iam.security.SecurityUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -39,6 +40,10 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        if (userMapper == null) {
+            log.error("SysUserMapper is null in UserServiceImpl!");
+            throw new InternalAuthenticationServiceException("SysUserMapper injection failed");
+        }
         // 通过用户名查找用户
         LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysUserEntity::getUsername, username);
@@ -53,17 +58,14 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
             throw new UsernameNotFoundException("用户已被禁用");
         }
         log.info("加载用户信息: userId={}, username={}", user.getId(), user.getUsername());
+
         Set<String> permissions = getUserPermissionsWithCache(user.getId());
         List<GrantedAuthority> authorities = permissions.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
-        return User.builder()
-                .username(user.getUsername())
-                .password(user.getPassword())
-                .authorities(authorities)
-                .accountExpired(false)
-                .accountLocked(false)
-                .credentialsExpired(false)
-                .disabled(false)
-                .build();
+
+        SecurityUser securityUser = new SecurityUser(user, authorities);
+
+        log.info("UserDetails created: username={}, password={}", securityUser.getUsername(), securityUser.getPassword());
+        return securityUser;
     }
 
     public Set<String> getUserPermissionsWithCache(Long userId) {
@@ -80,44 +82,10 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
         return permissions;
     }
 
-    public Page<UserEntity> page(Page<UserEntity> page, LambdaQueryWrapper<UserEntity> wrapper) {
-        Page<SysUserEntity> sysPage = new Page<>(page.getCurrent(), page.getSize());
-        LambdaQueryWrapper<SysUserEntity> sysWrapper = new LambdaQueryWrapper<>();
-        sysWrapper.setEntity(null);
-        this.page(sysPage, (LambdaQueryWrapper<SysUserEntity>) (Object) wrapper);
-        Page<UserEntity> out = new Page<>();
-        out.setCurrent(sysPage.getCurrent());
-        out.setSize(sysPage.getSize());
-        out.setTotal(sysPage.getTotal());
-        out.setRecords(sysPage.getRecords().stream().map(this::toUserEntity).collect(Collectors.toList()));
-        return out;
-    }
-
-    public UserEntity getById(Long id) {
-        SysUserEntity s = userMapper.selectById(id);
-        return s == null ? null : toUserEntity(s);
-    }
-
     public boolean usernameExists(String username) {
         LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysUserEntity::getUsername, username);
         return userMapper.selectCount(wrapper) > 0;
-    }
-
-    public boolean save(UserEntity user) {
-        return userMapper.insert(toSysUserEntity(user)) > 0;
-    }
-
-    public boolean updateById(UserEntity user) {
-        return userMapper.updateById(toSysUserEntity(user)) > 0;
-    }
-
-    public boolean removeById(Long id) {
-        return userMapper.deleteById(id) > 0;
-    }
-
-    public boolean removeByIds(List<Long> ids) {
-        return userMapper.deleteBatchIds(ids) > 0;
     }
 
     public void clearUserCache(Long userId) {
@@ -126,47 +94,16 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
     }
 
     public void assignRoles(Long userId, List<Long> roleIds) {
+        // TODO: Implement role assignment
     }
 
     public List<Long> getUserRoleIds(Long userId) {
+        // TODO: Implement get user roles
         return Collections.emptyList();
     }
 
-    private UserEntity toUserEntity(SysUserEntity s) {
-        UserEntity u = new UserEntity();
-        u.setId(s.getId());
-        u.setUsername(s.getUsername());
-        u.setPassword(s.getPassword());
-        u.setNickname(s.getNickname());
-        u.setEmail(s.getEmail());
-        u.setPhone(s.getPhone());
-        u.setDeptId(s.getDeptId());
-        u.setStatus(s.getStatus());
-        u.setCreateBy(s.getCreateBy());
-        u.setCreateTime(s.getCreateTime());
-        u.setUpdateBy(s.getUpdateBy());
-        u.setUpdateTime(s.getUpdateTime());
-        u.setRemark(s.getRemark());
-        u.setDelFlag(s.getDelFlag());
-        return u;
-    }
-
-    private SysUserEntity toSysUserEntity(UserEntity user) {
-        SysUserEntity s = new SysUserEntity();
-        s.setId(user.getId());
-        s.setUsername(user.getUsername());
-        s.setPassword(user.getPassword());
-        s.setNickname(user.getNickname());
-        s.setEmail(user.getEmail());
-        s.setPhone(user.getPhone());
-        s.setDeptId(user.getDeptId());
-        s.setStatus(user.getStatus());
-        s.setCreateBy(user.getCreateBy());
-        s.setCreateTime(user.getCreateTime());
-        s.setUpdateBy(user.getUpdateBy());
-        s.setUpdateTime(user.getUpdateTime());
-        s.setRemark(user.getRemark());
-        s.setDelFlag(user.getDelFlag());
-        return s;
+    @Override
+    public Page<SysUserEntity> page(Page<SysUserEntity> page, LambdaQueryWrapper<SysUserEntity> wrapper) {
+        return super.page(page, wrapper);
     }
 }

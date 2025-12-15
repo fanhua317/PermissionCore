@@ -41,11 +41,13 @@ public class DataScopeAspect {
         }
 
         Object principal = authentication.getPrincipal();
-        if (!(principal instanceof User)) {
-            return pjp.proceed();
+        Long userId = null;
+        if (principal instanceof User) {
+            userId = parseUserId((User) principal);
+        } else if (principal instanceof Long) {
+            userId = (Long) principal;
         }
 
-        Long userId = parseUserId((User) principal);
         if (userId == null) {
             return pjp.proceed();
         }

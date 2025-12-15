@@ -1,7 +1,7 @@
 package com.permacore.iam.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.permacore.iam.domain.entity.RoleEntity;
+import com.permacore.iam.domain.entity.SysRoleEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.SysRoleService;
@@ -32,10 +32,10 @@ public class RoleController {
      */
     @PreAuthorize("hasAuthority('system:role:query')")
     @GetMapping("/page")
-    public Result<PageVO<RoleEntity>> page(@RequestParam(defaultValue = "1") Integer pageNo,
-                                           @RequestParam(defaultValue = "10") Integer pageSize,
-                                           @RequestParam(required = false) String roleName) {
-        Page<RoleEntity> page = roleService.pageRoles(pageNo, pageSize, roleName);
+    public Result<PageVO<SysRoleEntity>> page(@RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+                                           @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+                                           @RequestParam(name = "roleName", required = false) String roleName) {
+        Page<SysRoleEntity> page = roleService.pageRoles(pageNo, pageSize, roleName);
         return Result.success(PageVO.of(page));
     }
 
@@ -44,7 +44,7 @@ public class RoleController {
      */
     @PreAuthorize("hasAuthority('system:role:query')")
     @GetMapping("/list")
-    public Result<List<RoleEntity>> list() {
+    public Result<List<SysRoleEntity>> list() {
         return Result.success(roleService.listRoles());
     }
 
@@ -53,7 +53,7 @@ public class RoleController {
      */
     @PreAuthorize("hasAuthority('role:add')")
     @PostMapping
-    public Result<Void> create(@RequestBody RoleEntity role) {
+    public Result<Void> create(@RequestBody SysRoleEntity role) {
         roleService.saveRole(role);
         log.info("创建角色: {}", role.getRoleName());
         return Result.success();
@@ -64,7 +64,7 @@ public class RoleController {
      */
     @PreAuthorize("hasAuthority('role:edit')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody RoleEntity role) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody SysRoleEntity role) {
         role.setId(id);
         roleService.updateRole(role);
         log.info("更新角色: roleId={}", id);

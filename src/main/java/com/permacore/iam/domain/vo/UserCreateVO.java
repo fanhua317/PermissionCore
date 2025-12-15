@@ -1,5 +1,8 @@
 package com.permacore.iam.domain.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UserCreateVO {
     private String username;
     private String password;
@@ -7,6 +10,7 @@ public class UserCreateVO {
     private String nickname;
     private String phone;
     private Long deptId;
+    private Integer status = 1;
 
     public String getUsername() {
         return username;
@@ -54,5 +58,13 @@ public class UserCreateVO {
 
     public void setDeptId(Long deptId) {
         this.deptId = deptId;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
     }
 }

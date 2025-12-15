@@ -1,6 +1,7 @@
 package com.permacore.iam.service.impl;
 
 import com.permacore.iam.mapper.SysPermissionMapper;
+import com.permacore.iam.mapper.SysRoleInheritanceMapper;
 import com.permacore.iam.mapper.SysRolePermissionMapper;
 import com.permacore.iam.mapper.SysUserRoleMapper;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -22,6 +24,7 @@ public class PermissionService {
     private final SysUserRoleMapper userRoleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysPermissionMapper permissionMapper;
+    private final SysRoleInheritanceMapper roleInheritanceMapper;
 
     /**
      * 获取用户的所有权限（包含角色继承的权限）
@@ -51,7 +54,8 @@ public class PermissionService {
      */
     private Set<Long> getUserRoleIdsWithInheritance(Long userId) {
         // 1. 查询直接分配的角色
-        Set<Long> directRoleIds = new HashSet<>(userRoleMapper.selectRoleIdsByUserId(userId));
+        List<Long> roleIdList = userRoleMapper.selectRoleIdsByUserId(userId);
+        Set<Long> directRoleIds = roleIdList != null ? new HashSet<>(roleIdList) : new HashSet<>();
 
         // 2. 查询每个角色的所有祖先角色（继承）
         Set<Long> inheritedRoleIds = new HashSet<>();
@@ -67,12 +71,6 @@ public class PermissionService {
      * 获取角色的所有祖先角色ID（递归）
      */
     private Set<Long> getAncestorRoleIds(Long roleId) {
-        Set<Long> ancestors = new HashSet<>();
-
-        // 这里简化实现，实际可通过sys_role_inheritance表查询
-        // TODO: 实现完整的角色继承查询
-        // 示例：SELECT ancestor_id FROM sys_role_inheritance WHERE descendant_id = #{roleId}
-
-        return ancestors;
+        return roleInheritanceMapper.selectAncestorIdsByDescendantId(roleId);
     }
 }

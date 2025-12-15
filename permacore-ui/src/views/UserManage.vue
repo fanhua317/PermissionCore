@@ -4,7 +4,10 @@
       <template #header>
         <div class="card-header">
           <span>用户管理</span>
-          <el-button type="primary" @click="handleCreate">新建用户</el-button>
+          <div class="header-actions">
+            <el-button @click="handleRefresh">刷新</el-button>
+            <el-button type="primary" @click="handleCreate">新建用户</el-button>
+          </div>
         </div>
       </template>
       <el-table :data="userList" border v-loading="loading">
@@ -46,6 +49,9 @@
         <el-form-item label="邮箱">
           <el-input v-model="userForm.email" />
         </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="userForm.status" :active-value="1" :inactive-value="0" />
+        </el-form-item>
         <el-form-item label="密码" v-if="!isEdit">
           <el-input v-model="userForm.password" type="password" placeholder="请输入密码" />
         </el-form-item>
@@ -64,7 +70,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
 
 const loading = ref(false);
-const userList = ref([]);
+const userList = ref<any[]>([]);
 const pageNo = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
@@ -72,40 +78,52 @@ const total = ref(0);
 const dialogVisible = ref(false);
 const dialogTitle = ref('新建用户');
 const isEdit = ref(false);
-const userForm = ref({
+const emptyForm = () => ({
   id: null,
   username: '',
   nickname: '',
   email: '',
   password: '',
+  status: 1,
 });
+const userForm = ref(emptyForm());
 
 const getUserList = async () => {
   loading.value = true;
   try {
-    const res = await request.get('/api/user/page', {
+    const res: any = await request.get('/api/user/page', {
       params: { pageNo: pageNo.value, pageSize: pageSize.value },
     });
-    userList.value = res.records;
-    total.value = res.total;
+    if (res && res.data) {
+      userList.value = res.data.records ?? [];
+      total.value = res.data.total ?? 0;
+    } else {
+      userList.value = [];
+      total.value = 0;
+    }
   } catch (error) {
+    console.error('Failed to get user list:', error);
     ElMessage.error('获取用户列表失败');
   } finally {
     loading.value = false;
   }
 };
 
+const handleRefresh = () => {
+  getUserList();
+};
+
 const handleCreate = () => {
   dialogTitle.value = '新建用户';
   isEdit.value = false;
-  userForm.value = { id: null, username: '', nickname: '', email: '', password: '' };
+  userForm.value = emptyForm();
   dialogVisible.value = true;
 };
 
 const handleEdit = (row: any) => {
   dialogTitle.value = '编辑用户';
   isEdit.value = true;
-  userForm.value = { ...row, password: '' };
+  userForm.value = { ...row, password: '', status: row.status ?? 1 };
   dialogVisible.value = true;
 };
 
@@ -123,13 +141,26 @@ const handleDelete = async (id: number) => {
 const handleSubmit = async () => {
   try {
     if (isEdit.value) {
-      await request.put(`/api/user/${userForm.value.id}`, userForm.value);
+      const payload = {
+        nickname: userForm.value.nickname,
+        email: userForm.value.email,
+        status: userForm.value.status,
+      };
+      await request.put(`/api/user/${userForm.value.id}`, payload);
     } else {
-      await request.post('/api/user', userForm.value);
+      const payload = {
+        username: userForm.value.username,
+        nickname: userForm.value.nickname,
+        email: userForm.value.email,
+        password: userForm.value.password,
+        deptId: 0,
+        status: userForm.value.status,
+      };
+      await request.post('/api/user', payload);
     }
     ElMessage.success(isEdit.value ? '更新成功' : '创建成功');
     dialogVisible.value = false;
-    getUserList();
+    handleRefresh();
   } catch (error) {
     ElMessage.error(isEdit.value ? '更新失败' : '创建失败');
   }
@@ -147,5 +178,10 @@ onMounted(() => {
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+.header-actions {
+  display: flex;
+  gap: 12px;
 }
 </style>

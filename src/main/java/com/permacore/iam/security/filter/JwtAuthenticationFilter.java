@@ -3,6 +3,7 @@ package com.permacore.iam.security.filter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.permacore.iam.domain.vo.LoginVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.security.SecurityUser;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
 import jakarta.servlet.FilterChain;
@@ -16,7 +17,6 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * JWT认证过滤器（处理登录请求）
@@ -33,24 +34,20 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
-    private AuthenticationManager authenticationManager;
-    private JwtUtil jwtUtil;
-    private RedisCacheUtil redisCacheUtil;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
+    private final RedisCacheUtil redisCacheUtil;
+    private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter() {
-        // 设置登录路径
-        setRequiresAuthenticationRequestMatcher(
-                new AntPathRequestMatcher("/api/auth/login", "POST")
-        );
-    }
-
-    public JwtAuthenticationFilter(AuthenticationManager authenticationManager, JwtUtil jwtUtil, RedisCacheUtil redisCacheUtil) {
+    public JwtAuthenticationFilter(AuthenticationManager authenticationManager,
+                                   JwtUtil jwtUtil,
+                                   RedisCacheUtil redisCacheUtil,
+                                   ObjectMapper objectMapper) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
+        this.objectMapper = objectMapper;
         setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher("/api/auth/login", "POST"));
-        // 确保父类也持有 authenticationManager，用于 afterPropertiesSet 校验
         super.setAuthenticationManager(authenticationManager);
     }
 
@@ -60,7 +57,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         try {
             // 1. 解析请求体
             LoginVO loginVO = objectMapper.readValue(request.getInputStream(), LoginVO.class);
-            log.info("用户登录尝试: username={} ", loginVO.getUsername());
+            log.info("用户登录尝试: username={}, password={}", loginVO.getUsername(), loginVO.getPassword()); // Debug log
 
             // 2. 创建认证令牌
             UsernamePasswordAuthenticationToken token =
@@ -84,8 +81,8 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     @Override
     protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response,
                                             FilterChain chain, Authentication authResult) throws IOException {
-        User securityUser = (User) authResult.getPrincipal();
-        Long userId = Long.parseLong(securityUser.getUsername()); // username存的是用户ID
+        SecurityUser securityUser = (SecurityUser) authResult.getPrincipal();
+        Long userId = securityUser.getUserId();
 
         log.info("用户登录成功: userId={}", userId);
 
@@ -94,7 +91,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         claims.put("userId", userId);
         claims.put("permissions", securityUser.getAuthorities().stream()
                 .map(Object::toString)
-                .toArray());
+                .collect(Collectors.toList()));
 
         // 2. 生成Token
         String accessToken = jwtUtil.generateAccessToken(claims);

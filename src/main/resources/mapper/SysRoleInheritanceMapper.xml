@@ -15,4 +15,8 @@
         id, ancestor_id, descendant_id, depth
     </sql>
 
+    <select id="selectAncestorIdsByDescendantId" resultType="java.lang.Long">
+        SELECT ancestor_id FROM sys_role_inheritance WHERE descendant_id = #{descendantId}
+    </select>
+
 </mapper>

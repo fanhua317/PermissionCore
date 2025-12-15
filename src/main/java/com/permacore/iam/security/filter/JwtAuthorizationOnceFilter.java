@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,7 +29,6 @@ import java.util.stream.Stream;
 /**
  * 统一的 JWT 授权过滤器，确保 SecurityConfig 中引用的 OncePerRequestFilter 存在。
  */
-@Component
 @RequiredArgsConstructor
 public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 
@@ -77,13 +77,27 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
     }
 
     private List<SimpleGrantedAuthority> resolveAuthorities(Claims claims) {
-        String permissions = claims.get("permissions", String.class);
-        if (StrUtil.isBlank(permissions)) {
+        Object permissionsObj = claims.get("permissions");
+        if (permissionsObj == null) {
             return Collections.emptyList();
         }
-        return Stream.of(permissions.replace("[", "").replace("]", "").split(","))
-                .map(String::trim)
-                .filter(StrUtil::isNotEmpty)
+        List<String> permissionList = new ArrayList<>();
+        if (permissionsObj instanceof List<?>) {
+            ((List<?>) permissionsObj).forEach(item -> {
+                if (item != null) {
+                    permissionList.add(item.toString());
+                }
+            });
+        } else if (permissionsObj instanceof String) {
+            String permissions = (String) permissionsObj;
+            if (StrUtil.isNotBlank(permissions)) {
+                Stream.of(permissions.split(","))
+                        .map(String::trim)
+                        .filter(StrUtil::isNotEmpty)
+                        .forEach(permissionList::add);
+            }
+        }
+        return permissionList.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
     }

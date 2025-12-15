@@ -2,7 +2,7 @@ package com.permacore.iam.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.permacore.iam.domain.entity.UserEntity;
+import com.permacore.iam.domain.entity.SysUserEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.domain.vo.ResultCode;
@@ -33,38 +33,46 @@ public class UserController {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
+
     /**
      * 分页查询用户
      * 权限要求：system:user:query 或拥有任何管理权限
      */
     // @PreAuthorize("hasAuthority('system:user:query')")
     @GetMapping("/page")
-    public Result<PageVO<UserEntity>> page(@RequestParam(defaultValue = "1") Integer pageNo,
-                                           @RequestParam(defaultValue = "10") Integer pageSize,
-                                           @RequestParam(required = false) String username,
-                                           @RequestParam(required = false) String nickname,
-                                           @RequestParam(required = false) Integer status) {
+    public Result<PageVO<SysUserEntity>> page(@ModelAttribute com.permacore.iam.domain.vo.UserQueryVO query) {
+        log.info("Requesting user list: {}", query);
+        try {
+            int pageNo = query.getPageNo() == null ? 1 : query.getPageNo();
+            int pageSize = query.getPageSize() == null ? 10 : query.getPageSize();
+            Page<SysUserEntity> page = new Page<>(pageNo, pageSize);
+            LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
 
-        Page<UserEntity> page = new Page<>(pageNo, pageSize);
-        LambdaQueryWrapper<UserEntity> wrapper = new LambdaQueryWrapper<>();
+            // 条件查询
+            if (StringUtils.hasText(query.getUsername())) {
+                wrapper.like(SysUserEntity::getUsername, query.getUsername());
+            }
+            if (StringUtils.hasText(query.getNickname())) {
+                wrapper.like(SysUserEntity::getNickname, query.getNickname());
+            }
+            if (query.getStatus() != null) {
+                wrapper.eq(SysUserEntity::getStatus, query.getStatus());
+            }
 
-        // 条件查询
-        if (StringUtils.hasText(username)) {
-            wrapper.like(UserEntity::getUsername, username);
+            wrapper.eq(SysUserEntity::getDelFlag, 0)
+                    .orderByDesc(SysUserEntity::getCreateTime);
+
+            Page<SysUserEntity> resultPage = userService.page(page, wrapper);
+            log.info("User list query success, total: {}", resultPage.getTotal());
+
+            // 密码不返回前端
+            resultPage.getRecords().forEach(u -> u.setPassword(null));
+
+            return Result.success(PageVO.of(resultPage));
+        } catch (Exception e) {
+            log.error("Failed to query user list", e);
+            throw e;
         }
-        if (StringUtils.hasText(nickname)) {
-            wrapper.like(UserEntity::getNickname, nickname);
-        }
-        if (status != null) {
-            wrapper.eq(UserEntity::getStatus, status);
-        }
-
-        wrapper.eq(UserEntity::getDelFlag, 0)
-                .orderByDesc(UserEntity::getCreateTime);
-
-        Page<UserEntity> resultPage = userService.page(page, wrapper);
-
-        return Result.success(PageVO.of(resultPage));
     }
 
     /**
@@ -72,8 +80,8 @@ public class UserController {
      */
     @PreAuthorize("hasAuthority('system:user:query')")
     @GetMapping("/{id}")
-    public Result<UserEntity> getById(@PathVariable Long id) {
-        UserEntity user = userService.getById(id);
+    public Result<SysUserEntity> getById(@PathVariable Long id) {
+        SysUserEntity user = userService.getById(id);
         if (user == null || Byte.valueOf((byte)1).equals(user.getDelFlag())) {
             return Result.error("用户不存在");
         }
@@ -94,19 +102,23 @@ public class UserController {
             return Result.error(ResultCode.USERNAME_EXISTS);
         }
 
-        UserEntity user = new UserEntity();
+        SysUserEntity user = new SysUserEntity();
         user.setUsername(createVO.getUsername());
         user.setNickname(createVO.getNickname());
         user.setEmail(createVO.getEmail());
         user.setPhone(createVO.getPhone());
-        user.setDeptId(createVO.getDeptId());
+        // 默认密码
+        String rawPassword = StringUtils.hasText(createVO.getPassword()) ? createVO.getPassword() : "123456";
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setDeptId(createVO.getDeptId() != null ? createVO.getDeptId() : 0L);
+        user.setStatus((byte) 1);
+        user.setDelFlag((byte) 0);
 
-        // 密码加密
-        user.setPassword(passwordEncoder.encode(createVO.getPassword()));
-
-        userService.save(user);
-        log.info("创建用户成功: userId={}, username={}", user.getId(), user.getUsername());
-        return Result.success();
+        if (userService.save(user)) {
+            log.info("创建用户成功: username={}", user.getUsername());
+            return Result.success();
+        }
+        return Result.error("创建失败");
     }
 
     /**
@@ -114,19 +126,22 @@ public class UserController {
      */
     @PreAuthorize("hasAuthority('user:edit')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody UserEntity user) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody SysUserEntity user) {
+        if (id == null) {
+            return Result.error("ID不能为空");
+        }
         user.setId(id);
-        // 防止更新密码和用户名
+        // 不允许修改密码和用户名
         user.setPassword(null);
         user.setUsername(null);
 
-        boolean success = userService.updateById(user);
-        if (success) {
-            // 更新成功后清除权限缓存
-            userService.clearUserCache(id);
-            log.info("更新用户成功: userId={}", id);
+        if (userService.updateById(user)) {
+            // 清除缓存
+            userService.clearUserCache(user.getId());
+            log.info("更新用户成功: userId={}", user.getId());
+            return Result.success();
         }
-        return Result.success();
+        return Result.error("更新失败");
     }
 
     /**
@@ -180,5 +195,25 @@ public class UserController {
     public Result<List<Long>> getUserRoles(@PathVariable Long userId) {
         List<Long> roleIds = userService.getUserRoleIds(userId);
         return Result.success(roleIds);
+    }
+
+    /**
+     * 重置用户密码
+     * 权限：user:resetPassword
+     */
+    @PreAuthorize("hasAuthority('user:resetPassword')")
+    @PostMapping("/{id}/reset-password")
+    public Result<Void> resetPassword(@PathVariable Long id, @RequestParam(name = "newPassword", defaultValue = "123456") String newPassword) {
+        SysUserEntity user = userService.getById(id);
+        if (user == null) {
+            return Result.error("用户不存在");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        if (userService.updateById(user)) {
+            userService.clearUserCache(id);
+            log.info("重置密码成功: userId={}", id);
+            return Result.success();
+        }
+        return Result.error("重置密码失败");
     }
 }

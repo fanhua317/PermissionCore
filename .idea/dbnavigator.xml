@@ -27,7 +27,17 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="abbdb506-a2ca-42b7-9c52-58250892a12e">
-      <console name="permacore_iam" type="STANDARD" schema="permacore_iam" session="Main"><![CDATA[SELECT * FROM permacore_iam.sys_user WHERE username = 'admin';]]></console>
+      <console name="permacore_iam" type="STANDARD" schema="permacore_iam" session="Main"><![CDATA[INSERT INTO sys_jwt_version (user_id, jwt_version, expire_time, create_time)
+VALUES (
+  (SELECT id FROM sys_user WHERE username = 'admin'),
+  'v2',
+  DATE_ADD(NOW(), INTERVAL 30 DAY),
+  NOW()
+)
+ON DUPLICATE KEY UPDATE
+  jwt_version = VALUES(jwt_version),
+  expire_time = VALUES(expire_time),
+  create_time = VALUES(create_time);]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">
@@ -38,6 +48,9 @@
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
     <connection id="abbdb506-a2ca-42b7-9c52-58250892a12e" />
+  </component>
+  <component name="DBNavigator.Project.DatasetFilterManager">
+    <filter-actions connection-id="abbdb506-a2ca-42b7-9c52-58250892a12e" dataset="permacore_iam.sys_user_role" active-filter-id="" />
   </component>
   <component name="DBNavigator.Project.ExecutionManager">
     <retain-sticky-names value="false" />

@@ -99,26 +99,17 @@ public class JwtUtil {
     }
 
     /**
-     * 解析Token（使用反射以兼容不同版本的 jjwt）
+     * 解析Token
      * @param token Token字符串
      * @return Claims
      */
     public Claims parseToken(String token) {
         try {
-            // 通过反射调用 io.jsonwebtoken.Jwts.parserBuilder().setSigningKey(...).build().parseClaimsJws(token).getBody()
-            Class<?> jwtsClass = Class.forName("io.jsonwebtoken.Jwts");
-            Method parserBuilderMethod = jwtsClass.getMethod("parserBuilder");
-            Object parserBuilder = parserBuilderMethod.invoke(null);
-            // setSigningKey
-            Method setSigningKey = parserBuilder.getClass().getMethod("setSigningKey", Object.class);
-            setSigningKey.invoke(parserBuilder, getSecretKey());
-            // build()
-            Method build = parserBuilder.getClass().getMethod("build");
-            Object parser = build.invoke(parserBuilder);
-            Method parseClaimsJws = parser.getClass().getMethod("parseClaimsJws", String.class);
-            Object jws = parseClaimsJws.invoke(parser, token);
-            Method getBody = jws.getClass().getMethod("getBody");
-            return (Claims) getBody.invoke(jws);
+            return Jwts.parser()
+                    .verifyWith(getSecretKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
         } catch (ExpiredJwtException e) {
             log.warn("Token已过期: {}", token);
             throw new RuntimeException("Token已过期，请重新登录");
@@ -126,25 +117,20 @@ public class JwtUtil {
             log.error("Token解析失败: {}", token, e);
             throw new RuntimeException("Token无效");
         } catch (Exception e) {
-            log.error("反射解析Token失败: {}", token, e);
+            log.error("解析Token失败: {}", token, e);
             throw new RuntimeException("Token解析错误");
         }
     }
 
     /**
-     * 验证Token是否有效（反射实现）
+     * 验证Token是否有效
      */
     public boolean validateToken(String token) {
         try {
-            Class<?> jwtsClass = Class.forName("io.jsonwebtoken.Jwts");
-            Method parserBuilderMethod = jwtsClass.getMethod("parserBuilder");
-            Object parserBuilder = parserBuilderMethod.invoke(null);
-            Method setSigningKey = parserBuilder.getClass().getMethod("setSigningKey", Object.class);
-            setSigningKey.invoke(parserBuilder, getSecretKey());
-            Method build = parserBuilder.getClass().getMethod("build");
-            Object parser = build.invoke(parserBuilder);
-            Method parseClaimsJws = parser.getClass().getMethod("parseClaimsJws", String.class);
-            parseClaimsJws.invoke(parser, token);
+            Jwts.parser()
+                    .verifyWith(getSecretKey())
+                    .build()
+                    .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             log.warn("Token验证失败: {}", e.getMessage());
