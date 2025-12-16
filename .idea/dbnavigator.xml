@@ -56,7 +56,6 @@ ON DUPLICATE KEY UPDATE
     <retain-sticky-names value="false" />
   </component>
   <component name="DBNavigator.Project.FileConnectionMappingManager">
-    <mapping file-url="file://$PROJECT_DIR$/src/main/java/com/permacore/iam/config" connection-id="virtual-mysql-connection" session-id="MAIN" current-schema="" />
     <mapping file-url="file://$PROJECT_DIR$" connection-id="abbdb506-a2ca-42b7-9c52-58250892a12e" session-id="MAIN" current-schema="permacore_iam" />
   </component>
   <component name="DBNavigator.Project.ObjectQuickFilterManager">

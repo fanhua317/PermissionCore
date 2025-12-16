@@ -94,9 +94,9 @@ const getUserList = async () => {
     const res: any = await request.get('/api/user/page', {
       params: { pageNo: pageNo.value, pageSize: pageSize.value },
     });
-    if (res && res.data) {
-      userList.value = res.data.records ?? [];
-      total.value = res.data.total ?? 0;
+    if (res) {
+      userList.value = res.records ?? [];
+      total.value = res.total ?? 0;
     } else {
       userList.value = [];
       total.value = 0;
