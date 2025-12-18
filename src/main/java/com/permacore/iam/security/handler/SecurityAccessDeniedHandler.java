@@ -49,3 +49,17 @@ public class SecurityAccessDeniedHandler implements AccessDeniedHandler {
         response.getWriter().write(json);
     }
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * @Component
+ * public class SecurityAccessDeniedHandler implements AccessDeniedHandler {
+ *     private static final Logger log = LoggerFactory.getLogger(SecurityAccessDeniedHandler.class);
+ *     private final ObjectMapper objectMapper;
+ *
+ *     public SecurityAccessDeniedHandler(ObjectMapper objectMapper) {
+ *         this.objectMapper = objectMapper;
+ *     }
+ *     // 其余方法保持不变
+ * }
+ */

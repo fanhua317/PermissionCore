@@ -103,3 +103,17 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
     }
 }
 
+/*
+ * 非 Lombok 版本示例：
+ * public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
+ *     private static final Logger log = LoggerFactory.getLogger(JwtAuthorizationOnceFilter.class);
+ *     private final JwtUtil jwtUtil;
+ *     private final RedisCacheUtil redisCacheUtil;
+ *
+ *     public JwtAuthorizationOnceFilter(JwtUtil jwtUtil, RedisCacheUtil redisCacheUtil) {
+ *         this.jwtUtil = jwtUtil;
+ *         this.redisCacheUtil = redisCacheUtil;
+ *     }
+ *     // 其余方法保持不变
+ * }
+ */

@@ -42,3 +42,20 @@ public class SysRoleInheritanceEntity implements Serializable {
     @TableField("depth")
     private Integer depth;
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * public class SysRoleInheritanceEntity implements Serializable {
+ *     private static final long serialVersionUID = 1L;
+ *     private Long id; private Long ancestorId; private Long descendantId; private Integer depth;
+ *
+ *     public Long getId() { return id; }
+ *     public void setId(Long id) { this.id = id; }
+ *     public Long getAncestorId() { return ancestorId; }
+ *     public void setAncestorId(Long ancestorId) { this.ancestorId = ancestorId; }
+ *     public Long getDescendantId() { return descendantId; }
+ *     public void setDescendantId(Long descendantId) { this.descendantId = descendantId; }
+ *     public Integer getDepth() { return depth; }
+ *     public void setDepth(Integer depth) { this.depth = depth; }
+ * }
+ */

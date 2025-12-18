@@ -74,3 +74,25 @@ public class PermissionService {
         return roleInheritanceMapper.selectAncestorIdsByDescendantId(roleId);
     }
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * public class PermissionService {
+ *     private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
+ *     private final SysUserRoleMapper userRoleMapper;
+ *     private final SysRolePermissionMapper rolePermissionMapper;
+ *     private final SysPermissionMapper permissionMapper;
+ *     private final SysRoleInheritanceMapper roleInheritanceMapper;
+ *
+ *     public PermissionService(SysUserRoleMapper userRoleMapper,
+ *                              SysRolePermissionMapper rolePermissionMapper,
+ *                              SysPermissionMapper permissionMapper,
+ *                              SysRoleInheritanceMapper roleInheritanceMapper) {
+ *         this.userRoleMapper = userRoleMapper;
+ *         this.rolePermissionMapper = rolePermissionMapper;
+ *         this.permissionMapper = permissionMapper;
+ *         this.roleInheritanceMapper = roleInheritanceMapper;
+ *     }
+ *     // 其余方法保持不变
+ * }
+ */

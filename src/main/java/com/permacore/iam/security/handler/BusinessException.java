@@ -30,3 +30,24 @@ public class BusinessException extends RuntimeException {
         return this.code;
     }
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * public class BusinessException extends RuntimeException {
+ *     private final Integer code;
+ *
+ *     public BusinessException(String message) {
+ *         super(message);
+ *         this.code = ResultCode.ERROR.getCode();
+ *     }
+ *     public BusinessException(ResultCode resultCode) {
+ *         super(resultCode.getMsg());
+ *         this.code = resultCode.getCode();
+ *     }
+ *     public BusinessException(ResultCode resultCode, String message) {
+ *         super(message);
+ *         this.code = resultCode.getCode();
+ *     }
+ *     public Integer getCode() { return this.code; }
+ * }
+ */

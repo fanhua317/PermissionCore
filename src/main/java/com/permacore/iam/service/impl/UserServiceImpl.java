@@ -107,3 +107,21 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
         return super.page(page, wrapper);
     }
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
+ *         implements UserDetailsService, com.permacore.iam.service.UserService {
+ *     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
+ *     private final SysUserMapper userMapper;
+ *     private final PermissionService permissionService;
+ *     private final RedisCacheUtil redisCacheUtil;
+ *
+ *     public UserServiceImpl(SysUserMapper userMapper, PermissionService permissionService, RedisCacheUtil redisCacheUtil) {
+ *         this.userMapper = userMapper;
+ *         this.permissionService = permissionService;
+ *         this.redisCacheUtil = redisCacheUtil;
+ *     }
+ *     // 其余方法保持不变
+ * }
+ */

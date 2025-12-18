@@ -24,3 +24,19 @@ public class SecurityUser extends User {
     }
 }
 
+/*
+ * 非 Lombok 版本示例：
+ * public class SecurityUser extends User {
+ *     private final Long userId;
+ *     private final String nickname;
+ *
+ *     public SecurityUser(SysUserEntity user, Collection<? extends GrantedAuthority> authorities) {
+ *         super(user.getUsername(), user.getPassword(),
+ *               user.getStatus() == 1, true, true, true, authorities);
+ *         this.userId = user.getId();
+ *         this.nickname = user.getNickname();
+ *     }
+ *     public Long getUserId() { return userId; }
+ *     public String getNickname() { return nickname; }
+ * }
+ */

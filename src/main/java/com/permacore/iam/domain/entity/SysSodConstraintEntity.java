@@ -47,3 +47,22 @@ public class SysSodConstraintEntity implements Serializable {
     @TableField("create_time")
     private LocalDateTime createTime;
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * public class SysSodConstraintEntity implements Serializable {
+ *     private static final long serialVersionUID = 1L;
+ *     private Long id; private String constraintName; private String roleSet; private Byte constraintType; private LocalDateTime createTime;
+ *
+ *     public Long getId() { return id; }
+ *     public void setId(Long id) { this.id = id; }
+ *     public String getConstraintName() { return constraintName; }
+ *     public void setConstraintName(String constraintName) { this.constraintName = constraintName; }
+ *     public String getRoleSet() { return roleSet; }
+ *     public void setRoleSet(String roleSet) { this.roleSet = roleSet; }
+ *     public Byte getConstraintType() { return constraintType; }
+ *     public void setConstraintType(Byte constraintType) { this.constraintType = constraintType; }
+ *     public LocalDateTime getCreateTime() { return createTime; }
+ *     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+ * }
+ */

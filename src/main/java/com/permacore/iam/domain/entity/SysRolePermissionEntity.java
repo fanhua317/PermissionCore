@@ -43,3 +43,20 @@ public class SysRolePermissionEntity implements Serializable {
     @TableField("create_time")
     private LocalDateTime createTime;
 }
+
+/*
+ * 非 Lombok 版本示例：
+ * public class SysRolePermissionEntity implements Serializable {
+ *     private static final long serialVersionUID = 1L;
+ *     private Long id; private Long roleId; private Long permissionId; private LocalDateTime createTime;
+ *
+ *     public Long getId() { return id; }
+ *     public void setId(Long id) { this.id = id; }
+ *     public Long getRoleId() { return roleId; }
+ *     public void setRoleId(Long roleId) { this.roleId = roleId; }
+ *     public Long getPermissionId() { return permissionId; }
+ *     public void setPermissionId(Long permissionId) { this.permissionId = permissionId; }
+ *     public LocalDateTime getCreateTime() { return createTime; }
+ *     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+ * }
+ */
