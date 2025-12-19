@@ -9,6 +9,7 @@ public class UserQueryVO {
     private String username;
     private String nickname;
     private Integer status;
+    private Long deptId;
 }
 
 /*

@@ -3,8 +3,12 @@ package com.permacore.iam.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.permacore.iam.domain.entity.SysRoleEntity;
 import com.permacore.iam.domain.entity.SysUserEntity;
+import com.permacore.iam.domain.entity.SysUserRoleEntity;
+import com.permacore.iam.mapper.SysRoleMapper;
 import com.permacore.iam.mapper.SysUserMapper;
+import com.permacore.iam.mapper.SysUserRoleMapper;
 import com.permacore.iam.utils.RedisCacheUtil;
 import com.permacore.iam.security.SecurityUser;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +21,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -35,6 +40,8 @@ import java.util.stream.Collectors;
 public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> implements UserDetailsService, com.permacore.iam.service.UserService {
 
     private final SysUserMapper userMapper;
+    private final SysUserRoleMapper userRoleMapper;
+    private final SysRoleMapper roleMapper;
     private final PermissionService permissionService;
     private final RedisCacheUtil redisCacheUtil;
 
@@ -93,13 +100,36 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
         redisCacheUtil.deleteJwtVersion(userId);
     }
 
+    @Override
+    @Transactional
     public void assignRoles(Long userId, List<Long> roleIds) {
-        // TODO: Implement role assignment
+        // 先删除原有角色关联
+        userRoleMapper.deleteByUserId(userId);
+        // 插入新的角色关联
+        if (roleIds != null && !roleIds.isEmpty()) {
+            for (Long roleId : roleIds) {
+                SysUserRoleEntity userRole = new SysUserRoleEntity();
+                userRole.setUserId(userId);
+                userRole.setRoleId(roleId);
+                userRoleMapper.insert(userRole);
+            }
+        }
+        log.info("角色分配完成: userId={}, roleIds={}", userId, roleIds);
     }
 
+    @Override
     public List<Long> getUserRoleIds(Long userId) {
-        // TODO: Implement get user roles
-        return Collections.emptyList();
+        List<Long> roleIds = userRoleMapper.selectRoleIdsByUserId(userId);
+        return roleIds != null ? roleIds : Collections.emptyList();
+    }
+
+    @Override
+    public List<SysRoleEntity> getUserRoles(Long userId) {
+        List<Long> roleIds = getUserRoleIds(userId);
+        if (roleIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return roleMapper.selectBatchIds(roleIds);
     }
 
     @Override

@@ -1,13 +1,17 @@
 package com.permacore.iam.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.permacore.iam.domain.entity.SysLoginLogEntity;
 import com.permacore.iam.domain.entity.SysUserEntity;
 import com.permacore.iam.domain.vo.LoginVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.security.handler.BusinessException;
+import com.permacore.iam.service.SysLoginLogService;
+import com.permacore.iam.service.UserService;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,8 +24,12 @@ import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 认证控制器
@@ -36,23 +44,31 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
     private final SysUserMapper sysUserMapper;
+    private final SysLoginLogService loginLogService;
+    private final UserService userService;
 
     public AuthController(AuthenticationManager authenticationManager,
                           JwtUtil jwtUtil,
                           RedisCacheUtil redisCacheUtil,
-                          @Qualifier("sysUserMapper") SysUserMapper sysUserMapper) {
+                          @Qualifier("sysUserMapper") SysUserMapper sysUserMapper,
+                          SysLoginLogService loginLogService,
+                          UserService userService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
         this.sysUserMapper = sysUserMapper;
+        this.loginLogService = loginLogService;
+        this.userService = userService;
     }
 
     /**
      * 登录接口
      */
     @PostMapping("/login")
-    public Result<Map<String, Object>> login(@RequestBody LoginVO loginVO) {
+    public Result<Map<String, Object>> login(@RequestBody LoginVO loginVO, HttpServletRequest request) {
         log.info("用户登录请求: username={}", loginVO.getUsername());
+        String ipAddress = getClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
 
         try {
             // 认证
@@ -84,16 +100,90 @@ public class AuthController {
             tokenMap.put("tokenType", "Bearer");
             tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(accessToken));
 
+            // 记录登录成功日志
+            recordLoginLog(loginVO.getUsername(), ipAddress, userAgent, (byte) 1, "登录成功");
+
             log.info("用户登录成功: username={}", loginVO.getUsername());
             return Result.success(tokenMap);
 
         } catch (BadCredentialsException e) {
             log.warn("登录失败: 用户名或密码错误, username={}", loginVO.getUsername());
+            // 记录登录失败日志
+            recordLoginLog(loginVO.getUsername(), ipAddress, userAgent, (byte) 0, "用户名或密码错误");
             throw new BusinessException("用户名或密码错误");
         } catch (Exception e) {
             log.error("登录异常: {}", e.getMessage());
+            // 记录登录异常日志
+            recordLoginLog(loginVO.getUsername(), ipAddress, userAgent, (byte) 0, e.getMessage());
             throw new BusinessException("登录失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 记录登录日志
+     */
+    private void recordLoginLog(String username, String ipAddress, String userAgent, byte status, String message) {
+        try {
+            SysLoginLogEntity loginLog = new SysLoginLogEntity();
+            loginLog.setUsername(username);
+            loginLog.setIpAddress(ipAddress);
+            loginLog.setLocation("本地");
+            loginLog.setBrowser(parseBrowser(userAgent));
+            loginLog.setOs(parseOs(userAgent));
+            loginLog.setLoginTime(LocalDateTime.now());
+            loginLog.setStatus(status);
+            loginLog.setMessage(message);
+            loginLogService.save(loginLog);
+        } catch (Exception e) {
+            log.error("记录登录日志失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 获取客户端IP地址
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // 多个代理情况，取第一个IP
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
+    }
+
+    /**
+     * 解析浏览器
+     */
+    private String parseBrowser(String userAgent) {
+        if (userAgent == null) return "Unknown";
+        if (userAgent.contains("Edge")) return "Edge";
+        if (userAgent.contains("Chrome")) return "Chrome";
+        if (userAgent.contains("Firefox")) return "Firefox";
+        if (userAgent.contains("Safari")) return "Safari";
+        if (userAgent.contains("MSIE") || userAgent.contains("Trident")) return "IE";
+        return "Unknown";
+    }
+
+    /**
+     * 解析操作系统
+     */
+    private String parseOs(String userAgent) {
+        if (userAgent == null) return "Unknown";
+        if (userAgent.contains("Windows")) return "Windows";
+        if (userAgent.contains("Mac")) return "MacOS";
+        if (userAgent.contains("Linux")) return "Linux";
+        if (userAgent.contains("Android")) return "Android";
+        if (userAgent.contains("iPhone") || userAgent.contains("iPad")) return "iOS";
+        return "Unknown";
     }
 
     /**
@@ -110,14 +200,37 @@ public class AuthController {
             // 验证RefreshToken
             Long userId = jwtUtil.getUserIdFromToken(refreshToken);
 
+            SysUserEntity user = sysUserMapper.selectById(userId);
+            if (user == null) {
+                throw new BusinessException("用户不存在");
+            }
+
+            // 重新生成权限（确保刷新后仍有权限）
+            org.springframework.security.core.userdetails.UserDetails userDetails = userService.loadUserByUsername(user.getUsername());
+            List<String> permissions = userDetails.getAuthorities().stream()
+                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
+
             // 生成新的AccessToken
             Map<String, Object> claims = new HashMap<>();
             claims.put("userId", userId);
+            claims.put("username", user.getUsername());
+            claims.put("nickname", user.getNickname());
+            claims.put("permissions", permissions);
 
             String newAccessToken = jwtUtil.generateAccessToken(claims);
 
+            // 旋转 RefreshToken（更安全，也和前端拦截器契合）
+            String newRefreshToken = jwtUtil.generateRefreshToken(userId);
+
+            // 更新JWT版本号（否则新 token 会被版本校验拒绝）
+            String jwtVersion = jwtUtil.getJtiFromToken(newAccessToken);
+            redisCacheUtil.setJwtVersion(userId, jwtVersion,
+                    jwtUtil.getTokenRemainTime(newAccessToken), TimeUnit.SECONDS);
+
             Map<String, Object> tokenMap = new HashMap<>();
             tokenMap.put("accessToken", newAccessToken);
+            tokenMap.put("refreshToken", newRefreshToken);
             tokenMap.put("tokenType", "Bearer");
             tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(newAccessToken));
 
@@ -164,10 +277,34 @@ public class AuthController {
         }
 
         Long userId = jwtUtil.getUserIdFromToken(token);
+        Claims claims = jwtUtil.parseToken(token);
+
+        String username = claims.get("username") != null ? claims.get("username").toString() : null;
+        String nickname = claims.get("nickname") != null ? claims.get("nickname").toString() : null;
+
+        // 兜底：旧 token 或 refresh token 生成的 access token 可能没有 username/nickname
+        if (username == null || username.isBlank() || nickname == null) {
+            SysUserEntity user = sysUserMapper.selectById(userId);
+            if (user != null) {
+                if (username == null || username.isBlank()) {
+                    username = user.getUsername();
+                }
+                if (nickname == null) {
+                    nickname = user.getNickname();
+                }
+            }
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        List<String> permissions = authentication == null ? List.of() : authentication.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("userId", userId);
-        userInfo.put("permissions", SecurityContextHolder.getContext()
-                .getAuthentication().getAuthorities());
+        userInfo.put("username", username);
+        userInfo.put("nickname", nickname);
+        userInfo.put("permissions", permissions);
 
         return Result.success(userInfo);
     }
