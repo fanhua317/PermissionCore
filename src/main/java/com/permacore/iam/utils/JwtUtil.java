@@ -146,6 +146,15 @@ public class JwtUtil {
     }
 
     /**
+     * 从Token中获取用户名
+     */
+    public String getUsernameFromToken(String token) {
+        Claims claims = parseToken(token);
+        Object username = claims.get("username");
+        return username != null ? username.toString() : null;
+    }
+
+    /**
      * 从Token中获取JWT唯一标识(JTI)
      */
     public String getJtiFromToken(String token) {

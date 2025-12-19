@@ -5,6 +5,7 @@ import com.permacore.iam.security.handler.SecurityAccessDeniedHandler;
 import com.permacore.iam.security.handler.SecurityAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import com.permacore.iam.service.UserService;
+import com.permacore.iam.service.SysLoginLogService;
 import com.permacore.iam.security.filter.JwtAuthenticationFilter;
 import com.permacore.iam.security.filter.JwtAuthorizationOnceFilter;
 import com.permacore.iam.utils.JwtUtil;
@@ -82,8 +83,8 @@ public class SecurityConfig {
      * 注入 JwtAuthenticationFilter 为 Bean，以便在 filterChain 中使用
      */
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(AuthenticationManager authenticationManager) {
-        return new JwtAuthenticationFilter(authenticationManager, jwtUtil, redisCacheUtil, objectMapper);
+    public JwtAuthenticationFilter jwtAuthenticationFilter(AuthenticationManager authenticationManager, SysLoginLogService loginLogService) {
+        return new JwtAuthenticationFilter(authenticationManager, jwtUtil, redisCacheUtil, objectMapper, loginLogService);
     }
 
     /**
@@ -98,7 +99,9 @@ public class SecurityConfig {
      * 核心过滤器链配置
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, AuthenticationManager authenticationManager, JwtAuthorizationOnceFilter jwtAuthorizationOnceFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                          JwtAuthenticationFilter jwtAuthenticationFilter,
+                                          JwtAuthorizationOnceFilter jwtAuthorizationOnceFilter) throws Exception {
         http
                 // 1. 禁用CSRF（JWT无状态，不需要CSRF）
                 .csrf(AbstractHttpConfigurer::disable)
@@ -134,7 +137,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler) // 权限不足
                 )
                 // 6. 添加JWT过滤器
-                .addFilterBefore(jwtAuthenticationFilter(authenticationManager), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthorizationOnceFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

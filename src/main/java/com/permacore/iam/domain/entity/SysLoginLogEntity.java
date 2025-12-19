@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import io.swagger.annotations.ApiModel;
@@ -37,10 +38,12 @@ public class SysLoginLogEntity implements Serializable {
 
     @ApiModelProperty("登录IP")
     @TableField("ip_address")
+    @JsonProperty("ipAddr")
     private String ipAddress;
 
     @ApiModelProperty("登录地点")
     @TableField("location")
+    @JsonProperty("loginLocation")
     private String location;
 
     @ApiModelProperty("浏览器")
@@ -61,5 +64,6 @@ public class SysLoginLogEntity implements Serializable {
 
     @ApiModelProperty("登录消息")
     @TableField("message")
+    @JsonProperty("msg")
     private String message;
 }

@@ -2,6 +2,7 @@ package com.permacore.iam.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.permacore.iam.domain.entity.SysPermissionEntity;
 import com.permacore.iam.domain.entity.SysRoleEntity;
 
 import java.util.List;
@@ -29,6 +30,11 @@ public interface SysRoleService extends IService<SysRoleEntity> {
     void assignPermissions(Long roleId, List<Long> permissionIds);
 
     List<Long> getRolePermissionIds(Long roleId);
+    
+    /**
+     * 获取角色拥有的权限列表（返回完整权限对象）
+     */
+    List<SysPermissionEntity> getRolePermissions(Long roleId);
 
     void setRoleInheritance(Long roleId, Long parentId);
 

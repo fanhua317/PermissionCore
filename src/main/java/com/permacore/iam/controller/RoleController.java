@@ -1,6 +1,7 @@
 package com.permacore.iam.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.permacore.iam.annotation.OperLog;
 import com.permacore.iam.domain.entity.SysRoleEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
@@ -51,6 +52,7 @@ public class RoleController {
     /**
      * 创建角色
      */
+    @OperLog(title = "创建角色", businessType = 1)
     @PreAuthorize("hasAuthority('role:add')")
     @PostMapping
     public Result<Void> create(@RequestBody SysRoleEntity role) {
@@ -62,6 +64,7 @@ public class RoleController {
     /**
      * 更新角色
      */
+    @OperLog(title = "更新角色", businessType = 2)
     @PreAuthorize("hasAuthority('role:edit')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody SysRoleEntity role) {
@@ -74,6 +77,7 @@ public class RoleController {
     /**
      * 删除角色（同时删除关联关系）
      */
+    @OperLog(title = "删除角色", businessType = 3)
     @PreAuthorize("hasAuthority('role:delete')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -83,8 +87,9 @@ public class RoleController {
     }
 
     /**
-     * 为角色分配权限
+     * 为角色分配权限 (POST)
      */
+    @OperLog(title = "分配权限", businessType = 2)
     @PreAuthorize("hasAuthority('role:assignPermission')")
     @PostMapping("/{roleId}/permissions")
     public Result<Void> assignPermissions(@PathVariable Long roleId, @RequestBody List<Long> permissionIds) {
@@ -94,12 +99,23 @@ public class RoleController {
     }
 
     /**
-     * 获取角色拥有的权限
+     * 为角色分配权限 (PUT - 前端使用此接口)
      */
-    @PreAuthorize("hasAuthority('system:role:query')")
+    @PreAuthorize("hasAuthority('role:assignPermission')")
+    @PutMapping("/{roleId}/permissions")
+    public Result<Void> updatePermissions(@PathVariable Long roleId, 
+            @RequestBody com.permacore.iam.domain.vo.AssignPermissionsVO vo) {
+        roleService.assignPermissions(roleId, vo.getPermissionIds());
+        log.info("更新权限: roleId={}, permissions={}", roleId, vo.getPermissionIds());
+        return Result.success();
+    }
+
+    /**
+     * 获取角色拥有的权限（返回权限对象列表）
+     */
     @GetMapping("/{roleId}/permissions")
-    public Result<List<Long>> getRolePermissions(@PathVariable Long roleId) {
-        return Result.success(roleService.getRolePermissionIds(roleId));
+    public Result<List<com.permacore.iam.domain.entity.SysPermissionEntity>> getRolePermissions(@PathVariable Long roleId) {
+        return Result.success(roleService.getRolePermissions(roleId));
     }
 
     /**

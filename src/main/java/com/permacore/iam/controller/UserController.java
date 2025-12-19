@@ -2,6 +2,7 @@ package com.permacore.iam.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.permacore.iam.annotation.OperLog;
 import com.permacore.iam.domain.entity.SysUserEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
@@ -58,6 +59,9 @@ public class UserController {
             if (query.getStatus() != null) {
                 wrapper.eq(SysUserEntity::getStatus, query.getStatus());
             }
+            if (query.getDeptId() != null) {
+                wrapper.eq(SysUserEntity::getDeptId, query.getDeptId());
+            }
 
             wrapper.eq(SysUserEntity::getDelFlag, 0)
                     .orderByDesc(SysUserEntity::getCreateTime);
@@ -94,6 +98,7 @@ public class UserController {
      * 创建用户
      * 权限：user:add
      */
+    @OperLog(title = "创建用户", businessType = 1)
     @PreAuthorize("hasAuthority('user:add')")
     @PostMapping
     public Result<Void> create(@Validated @RequestBody UserCreateVO createVO) {
@@ -124,6 +129,7 @@ public class UserController {
     /**
      * 更新用户
      */
+    @OperLog(title = "更新用户", businessType = 2)
     @PreAuthorize("hasAuthority('user:edit')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody SysUserEntity user) {
@@ -148,6 +154,7 @@ public class UserController {
      * 删除用户
      * 需要 user:delete 权限
      */
+    @OperLog(title = "删除用户", businessType = 3)
     @PreAuthorize("hasAuthority('user:delete')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -174,7 +181,7 @@ public class UserController {
     }
 
     /**
-     * 分配角色给用户
+     * 分配角色给用户 (POST)
      * 需要 user:assignRole 权限
      */
     @PreAuthorize("hasAuthority('user:assignRole')")
@@ -188,13 +195,26 @@ public class UserController {
     }
 
     /**
-     * 获取用户拥有的角色
+     * 分配角色给用户 (PUT - 前端使用此接口)
      */
-    @PreAuthorize("hasAuthority('system:user:query')")
+    @PreAuthorize("hasAuthority('user:assignRole')")
+    @PutMapping("/{userId}/roles")
+    public Result<Void> updateRoles(@PathVariable Long userId, 
+            @RequestBody com.permacore.iam.domain.vo.AssignRolesVO vo) {
+        userService.assignRoles(userId, vo.getRoleIds());
+        // 清除权限缓存
+        userService.clearUserCache(userId);
+        log.info("更新角色: userId={}, roles={}", userId, vo.getRoleIds());
+        return Result.success();
+    }
+
+    /**
+     * 获取用户拥有的角色（返回完整角色对象列表）
+     */
     @GetMapping("/{userId}/roles")
-    public Result<List<Long>> getUserRoles(@PathVariable Long userId) {
-        List<Long> roleIds = userService.getUserRoleIds(userId);
-        return Result.success(roleIds);
+    public Result<List<com.permacore.iam.domain.entity.SysRoleEntity>> getUserRoles(@PathVariable Long userId) {
+        List<com.permacore.iam.domain.entity.SysRoleEntity> roles = userService.getUserRoles(userId);
+        return Result.success(roles);
     }
 
     /**

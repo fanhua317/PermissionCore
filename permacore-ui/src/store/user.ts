@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import request from '@/utils/request';
 
 interface UserInfo {
   userId: number;
@@ -11,13 +12,30 @@ interface UserInfo {
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('accessToken') || '');
   const userInfo = ref<UserInfo | null>(null);
-  const isLogin = ref(false);
+  const isLogin = ref(!!token.value);
 
   const setToken = (accessToken: string, refreshToken: string) => {
     token.value = accessToken;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     isLogin.value = true;
+  };
+
+  const fetchUserInfo = async () => {
+    if (!token.value) {
+      userInfo.value = null;
+      isLogin.value = false;
+      return null;
+    }
+    const data: any = await request.get('/api/auth/info');
+    userInfo.value = {
+      userId: data.userId,
+      username: data.username,
+      nickname: data.nickname,
+      permissions: data.permissions ?? [],
+    };
+    isLogin.value = true;
+    return userInfo.value;
   };
 
   const clearToken = () => {
@@ -33,6 +51,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     isLogin,
     setToken,
+    fetchUserInfo,
     clearToken,
   };
 });

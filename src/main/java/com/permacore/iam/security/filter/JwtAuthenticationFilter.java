@@ -1,9 +1,11 @@
 package com.permacore.iam.security.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.permacore.iam.domain.entity.SysLoginLogEntity;
 import com.permacore.iam.domain.vo.LoginVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.security.SecurityUser;
+import com.permacore.iam.service.SysLoginLogService;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
 import jakarta.servlet.FilterChain;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
 
 /**
  * JWT认证过滤器（处理登录请求）
@@ -38,15 +41,20 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
     private final ObjectMapper objectMapper;
+    private final SysLoginLogService loginLogService;
+
+    private static final String ATTR_LOGIN_USERNAME = "LOGIN_USERNAME";
 
     public JwtAuthenticationFilter(AuthenticationManager authenticationManager,
                                    JwtUtil jwtUtil,
                                    RedisCacheUtil redisCacheUtil,
-                                   ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper,
+                                   SysLoginLogService loginLogService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
         this.objectMapper = objectMapper;
+        this.loginLogService = loginLogService;
         setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher("/api/auth/login", "POST"));
         super.setAuthenticationManager(authenticationManager);
     }
@@ -58,6 +66,9 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
             // 1. 解析请求体
             LoginVO loginVO = objectMapper.readValue(request.getInputStream(), LoginVO.class);
             log.info("用户登录尝试: username={}, password={}", loginVO.getUsername(), loginVO.getPassword()); // Debug log
+
+            // 保存 username 以便失败时记录日志（失败回调无法再次读取 inputStream）
+            request.setAttribute(ATTR_LOGIN_USERNAME, loginVO.getUsername());
 
             // 2. 创建认证令牌
             UsernamePasswordAuthenticationToken token =
@@ -83,12 +94,15 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                                             FilterChain chain, Authentication authResult) throws IOException {
         SecurityUser securityUser = (SecurityUser) authResult.getPrincipal();
         Long userId = securityUser.getUserId();
+        String username = securityUser.getUsername();
 
         log.info("用户登录成功: userId={}", userId);
 
         // 1. 构建JWT载荷
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
+        claims.put("username", username);
+        claims.put("nickname", securityUser.getNickname());
         claims.put("permissions", securityUser.getAuthorities().stream()
                 .map(Object::toString)
                 .collect(Collectors.toList()));
@@ -109,6 +123,9 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         tokenMap.put("tokenType", "Bearer");
         tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(accessToken));
 
+        // 5. 记录登录成功日志
+        recordLoginLog(username, request, (byte) 1, "登录成功");
+
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write(objectMapper.writeValueAsString(Result.success(tokenMap)));
     }
@@ -121,6 +138,11 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                                               AuthenticationException failed) throws IOException {
         log.warn("登录失败: {}", failed.getMessage());
 
+        String username = (String) request.getAttribute(ATTR_LOGIN_USERNAME);
+        if (username == null || username.isBlank()) {
+            username = "unknown";
+        }
+
         Result<Void> result;
         if (failed instanceof BadCredentialsException) {
             result = Result.error("用户名或密码错误");
@@ -130,8 +152,68 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
             result = Result.error("登录失败：" + failed.getMessage());
         }
 
+        // 记录登录失败日志
+        recordLoginLog(username, request, (byte) 0, result.getMsg());
+
         response.setContentType("application/json;charset=UTF-8");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.getWriter().write(objectMapper.writeValueAsString(result));
+    }
+
+    private void recordLoginLog(String username, HttpServletRequest request, byte status, String message) {
+        try {
+            String ipAddress = getClientIp(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            SysLoginLogEntity loginLog = new SysLoginLogEntity();
+            loginLog.setUsername(username);
+            loginLog.setIpAddress(ipAddress);
+            loginLog.setLocation("本地");
+            loginLog.setBrowser(parseBrowser(userAgent));
+            loginLog.setOs(parseOs(userAgent));
+            loginLog.setLoginTime(LocalDateTime.now());
+            loginLog.setStatus(status);
+            loginLog.setMessage(message);
+            loginLogService.save(loginLog);
+        } catch (Exception e) {
+            log.error("记录登录日志失败: {}", e.getMessage());
+        }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
+    }
+
+    private String parseBrowser(String userAgent) {
+        if (userAgent == null) return "Unknown";
+        if (userAgent.contains("Edge")) return "Edge";
+        if (userAgent.contains("Chrome")) return "Chrome";
+        if (userAgent.contains("Firefox")) return "Firefox";
+        if (userAgent.contains("Safari")) return "Safari";
+        if (userAgent.contains("MSIE") || userAgent.contains("Trident")) return "IE";
+        return "Unknown";
+    }
+
+    private String parseOs(String userAgent) {
+        if (userAgent == null) return "Unknown";
+        if (userAgent.contains("Windows")) return "Windows";
+        if (userAgent.contains("Mac")) return "MacOS";
+        if (userAgent.contains("Linux")) return "Linux";
+        if (userAgent.contains("Android")) return "Android";
+        if (userAgent.contains("iPhone") || userAgent.contains("iPad")) return "iOS";
+        return "Unknown";
     }
 }
