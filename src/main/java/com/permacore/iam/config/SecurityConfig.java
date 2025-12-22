@@ -120,6 +120,7 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/refresh",
                                 "/api/auth/captcha",
+                                "/uploads/**",
                                 "/doc.html",
                                 "/webjars/**",
                                 "/v3/api-docs/**",

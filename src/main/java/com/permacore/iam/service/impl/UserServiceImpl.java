@@ -97,7 +97,8 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
 
     public boolean usernameExists(String username) {
         LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysUserEntity::getUsername, username);
+        wrapper.eq(SysUserEntity::getUsername, username)
+                .eq(SysUserEntity::getDelFlag, 0);
         return userMapper.selectCount(wrapper) > 0;
     }
 

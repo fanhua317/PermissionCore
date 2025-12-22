@@ -291,8 +291,14 @@ const handleSubmit = async () => {
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功');
       dialogVisible.value = false;
       getUserList();
-    } catch (error) {
-      ElMessage.error(isEdit.value ? '更新失败' : '创建失败');
+    } catch (error: any) {
+      const res = error?.response?.data;
+      const userMsg = res?.msg || (isEdit.value ? '更新失败' : '创建失败');
+      const detail = res?.detail;
+      ElMessage.error(userMsg);
+      if (detail) {
+        console.warn('[管理员诊断]', detail);
+      }
     } finally {
       submitLoading.value = false;
     }

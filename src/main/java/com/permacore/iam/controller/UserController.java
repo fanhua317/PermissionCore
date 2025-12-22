@@ -8,6 +8,7 @@ import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.domain.vo.ResultCode;
 import com.permacore.iam.domain.vo.UserCreateVO;
+import com.permacore.iam.service.SysDeptService;
 import com.permacore.iam.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 用户管理控制器
@@ -36,6 +39,7 @@ public class UserController {
 
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final SysDeptService deptService;
 
 
     /**
@@ -73,8 +77,31 @@ public class UserController {
             Page<SysUserEntity> resultPage = userService.page(page, wrapper);
             log.info("User list query success, total: {}", resultPage.getTotal());
 
+            // 填充部门名称
+            List<SysUserEntity> records = resultPage.getRecords();
+            if (!records.isEmpty()) {
+                List<Long> deptIds = records.stream()
+                        .map(SysUserEntity::getDeptId)
+                        .filter(id -> id != null && id > 0)
+                        .distinct()
+                        .collect(Collectors.toList());
+                if (!deptIds.isEmpty()) {
+                    Map<Long, String> deptNameMap = deptService.listByIds(deptIds).stream()
+                            .collect(Collectors.toMap(
+                                    d -> d.getId(),
+                                    d -> d.getDeptName(),
+                                    (a, b) -> a
+                            ));
+                    records.forEach(u -> {
+                        if (u.getDeptId() != null && deptNameMap.containsKey(u.getDeptId())) {
+                            u.setDeptName(deptNameMap.get(u.getDeptId()));
+                        }
+                    });
+                }
+            }
+
             // 密码不返回前端
-            resultPage.getRecords().forEach(u -> u.setPassword(null));
+            records.forEach(u -> u.setPassword(null));
 
             return Result.success(PageVO.of(resultPage));
         } catch (Exception e) {
@@ -108,9 +135,20 @@ public class UserController {
     @PreAuthorize("hasAuthority('user:add')")
     @PostMapping
     public Result<Void> create(@Validated @RequestBody UserCreateVO createVO) {
+        // 校验用户名
+        if (!StringUtils.hasText(createVO.getUsername())) {
+            return Result.error("用户名不能为空", "username字段为空或未提供");
+        }
+        if (createVO.getUsername().length() < 3 || createVO.getUsername().length() > 20) {
+            return Result.error("用户名长度需在3-20个字符之间", "username长度不符合要求: " + createVO.getUsername().length());
+        }
         // 检查用户名重复
         if (userService.usernameExists(createVO.getUsername())) {
-            return Result.error(ResultCode.USERNAME_EXISTS);
+            return Result.error("用户名已被使用，请换一个", "用户名重复: " + createVO.getUsername());
+        }
+        // 校验昵称
+        if (!StringUtils.hasText(createVO.getNickname())) {
+            return Result.error("昵称不能为空", "nickname字段为空或未提供");
         }
 
         SysUserEntity user = new SysUserEntity();
@@ -129,7 +167,7 @@ public class UserController {
             log.info("创建用户成功: username={}", user.getUsername());
             return Result.success();
         }
-        return Result.error("创建失败");
+        return Result.error("创建用户失败，请稍后重试", "UserService.save() 返回 false, username=" + createVO.getUsername());
     }
 
     /**
