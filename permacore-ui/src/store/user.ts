@@ -6,6 +6,8 @@ interface UserInfo {
   userId: number;
   username: string;
   nickname: string;
+  email: string;
+  phone: string;
   permissions: string[];
 }
 
@@ -32,6 +34,8 @@ export const useUserStore = defineStore('user', () => {
       userId: data.userId,
       username: data.username,
       nickname: data.nickname,
+      email: data.email ?? '',
+      phone: data.phone ?? '',
       permissions: data.permissions ?? [],
     };
     isLogin.value = true;

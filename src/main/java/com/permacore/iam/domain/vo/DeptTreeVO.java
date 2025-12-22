@@ -14,8 +14,10 @@ public class DeptTreeVO {
     private String deptName;
     private String deptCode;
     private String leader;
+    private Long leaderId;
     private String phone;
-    private Integer orderNum;
+    private String email;
+    private Integer sortOrder;
     private Integer status;
     private LocalDateTime createTime;
     private Integer userCount;  // 部门用户数量

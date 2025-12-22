@@ -8,7 +8,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * PermaCore权限管理系统启动类
+ * PermaCore权限管理系统启动类cd
  */
 @SpringBootApplication(exclude = { RedissonAutoConfigurationV2.class })
 public class PermaCoreApplication {

@@ -29,13 +29,13 @@
 
       <el-table :data="roleList" border v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" align="center" />
-        <el-table-column prop="roleCode" label="角色编码" width="150">
+        <el-table-column prop="roleKey" label="角色编码" width="150">
           <template #default="{ row }">
-            <el-tag>{{ row.roleCode }}</el-tag>
+            <el-tag>{{ row.roleKey }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="roleName" label="角色名称" width="150" />
-        <el-table-column prop="description" label="描述" show-overflow-tooltip />
+        <el-table-column prop="remark" label="描述" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-switch
@@ -81,14 +81,14 @@
     <!-- 新建/编辑角色对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" destroy-on-close>
       <el-form :model="roleForm" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="角色编码" prop="roleCode">
-          <el-input v-model="roleForm.roleCode" :disabled="isEdit" placeholder="请输入角色编码，如 ROLE_ADMIN" />
+        <el-form-item label="角色编码" prop="roleKey">
+          <el-input v-model="roleForm.roleKey" :disabled="isEdit" placeholder="请输入角色编码，如 ROLE_ADMIN" />
         </el-form-item>
         <el-form-item label="角色名称" prop="roleName">
           <el-input v-model="roleForm.roleName" placeholder="请输入角色名称" />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="roleForm.description" type="textarea" :rows="3" placeholder="请输入角色描述" />
+        <el-form-item label="描述" prop="remark">
+          <el-input v-model="roleForm.remark" type="textarea" :rows="3" placeholder="请输入角色描述" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="roleForm.status">
@@ -175,16 +175,16 @@ const availableParentRoles = ref<any[]>([]);
 
 const emptyForm = () => ({
   id: null as number | null,
-  roleCode: '',
+  roleKey: '',
   roleName: '',
-  description: '',
+  remark: '',
   status: 1,
 });
 
 const roleForm = ref(emptyForm());
 
 const rules: FormRules = {
-  roleCode: [
+  roleKey: [
     { required: true, message: '请输入角色编码', trigger: 'blur' },
     { pattern: /^[A-Z_]+$/, message: '角色编码只能包含大写字母和下划线', trigger: 'blur' },
   ],

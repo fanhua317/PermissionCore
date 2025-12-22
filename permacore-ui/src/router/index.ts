@@ -39,6 +39,12 @@ const routes = [
         meta: { title: '权限管理', requiresAuth: true },
       },
       {
+        path: 'sod',
+        name: 'SodManage',
+        component: () => import('@/views/SodManage.vue'),
+        meta: { title: '职责分离', requiresAuth: true },
+      },
+      {
         path: 'dept',
         name: 'DeptManage',
         component: () => import('@/views/DeptManage.vue'),
