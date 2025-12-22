@@ -60,6 +60,12 @@ public class SysUserEntity implements Serializable {
     @TableLogic
     private Byte delFlag;
 
+    /**
+     * 部门名称（非数据库字段，用于前端展示）
+     */
+    @TableField(exist = false)
+    private String deptName;
+
     public Long getId() {
         return id;
     }
@@ -170,5 +176,13 @@ public class SysUserEntity implements Serializable {
 
     public void setDelFlag(Byte delFlag) {
         this.delFlag = delFlag;
+    }
+
+    public String getDeptName() {
+        return deptName;
+    }
+
+    public void setDeptName(String deptName) {
+        this.deptName = deptName;
     }
 }
