@@ -67,17 +67,14 @@
             <el-descriptions :column="2" border>
               <el-descriptions-item label="部门ID">{{ currentDept.id }}</el-descriptions-item>
               <el-descriptions-item label="部门名称">{{ currentDept.deptName }}</el-descriptions-item>
-              <el-descriptions-item label="部门编码">
-                <el-tag>{{ currentDept.deptCode || '-' }}</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="负责人">{{ currentDept.leader || '-' }}</el-descriptions-item>
               <el-descriptions-item label="联系电话">{{ currentDept.phone || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="邮箱">{{ currentDept.email || '-' }}</el-descriptions-item>
               <el-descriptions-item label="状态">
                 <el-tag :type="currentDept.status ? 'success' : 'danger'">
                   {{ currentDept.status ? '正常' : '停用' }}
                 </el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="排序">{{ currentDept.orderNum }}</el-descriptions-item>
+              <el-descriptions-item label="排序">{{ currentDept.sortOrder }}</el-descriptions-item>
               <el-descriptions-item label="创建时间">{{ currentDept.createTime || '-' }}</el-descriptions-item>
             </el-descriptions>
 
@@ -122,17 +119,14 @@
         <el-form-item label="部门名称" prop="deptName">
           <el-input v-model="deptForm.deptName" placeholder="请输入部门名称" />
         </el-form-item>
-        <el-form-item label="部门编码" prop="deptCode">
-          <el-input v-model="deptForm.deptCode" placeholder="请输入部门编码" />
-        </el-form-item>
-        <el-form-item label="负责人">
-          <el-input v-model="deptForm.leader" placeholder="请输入负责人" />
-        </el-form-item>
         <el-form-item label="联系电话">
           <el-input v-model="deptForm.phone" placeholder="请输入联系电话" />
         </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="deptForm.email" placeholder="请输入邮箱" />
+        </el-form-item>
         <el-form-item label="排序">
-          <el-input-number v-model="deptForm.orderNum" :min="0" :max="999" />
+          <el-input-number v-model="deptForm.sortOrder" :min="0" :max="999" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="deptForm.status">
@@ -173,10 +167,11 @@ const emptyForm = () => ({
   id: null as number | null,
   parentId: 0,
   deptName: '',
-  deptCode: '',
-  leader: '',
+  deptPath: '',
+  leaderId: null as number | null,
   phone: '',
-  orderNum: 0,
+  email: '',
+  sortOrder: 0,
   status: 1,
 });
 
@@ -237,7 +232,18 @@ const handleCreate = (parent: any) => {
 const handleEdit = (row: any) => {
   dialogTitle.value = '编辑部门';
   isEdit.value = true;
-  deptForm.value = { ...row };
+  // 只复制需要的字段，避免传递children等不必要的属性
+  deptForm.value = {
+    id: row.id,
+    parentId: row.parentId ?? 0,
+    deptName: row.deptName ?? '',
+    deptPath: row.deptPath ?? '',
+    leaderId: row.leaderId ?? null,
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    sortOrder: row.sortOrder ?? 0,
+    status: row.status ?? 1,
+  };
   dialogVisible.value = true;
 };
 

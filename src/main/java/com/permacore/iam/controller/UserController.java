@@ -9,6 +9,8 @@ import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.domain.vo.ResultCode;
 import com.permacore.iam.domain.vo.UserCreateVO;
 import com.permacore.iam.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +26,7 @@ import java.util.List;
 /**
  * 用户管理控制器
  */
+@Tag(name = "用户管理", description = "用户增删改查及状态管理")
 @RestController
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
@@ -40,6 +43,7 @@ public class UserController {
      * 权限要求：system:user:query 或拥有任何管理权限
      */
     // @PreAuthorize("hasAuthority('system:user:query')")
+    @Operation(summary = "分页查询用户", description = "根据条件分页查询用户列表")
     @GetMapping("/page")
     public Result<PageVO<SysUserEntity>> page(@ModelAttribute com.permacore.iam.domain.vo.UserQueryVO query) {
         log.info("Requesting user list: {}", query);
@@ -82,6 +86,7 @@ public class UserController {
     /**
      * 根据ID查询用户
      */
+    @Operation(summary = "获取用户详情", description = "根据ID获取用户详细信息")
     @PreAuthorize("hasAuthority('system:user:query')")
     @GetMapping("/{id}")
     public Result<SysUserEntity> getById(@PathVariable Long id) {
@@ -98,6 +103,7 @@ public class UserController {
      * 创建用户
      * 权限：user:add
      */
+    @Operation(summary = "创建用户", description = "新增用户")
     @OperLog(title = "创建用户", businessType = 1)
     @PreAuthorize("hasAuthority('user:add')")
     @PostMapping
@@ -129,6 +135,7 @@ public class UserController {
     /**
      * 更新用户
      */
+    @Operation(summary = "更新用户", description = "更新用户信息")
     @OperLog(title = "更新用户", businessType = 2)
     @PreAuthorize("hasAuthority('user:edit')")
     @PutMapping("/{id}")
@@ -154,6 +161,7 @@ public class UserController {
      * 删除用户
      * 需要 user:delete 权限
      */
+    @Operation(summary = "删除用户", description = "逻辑删除用户")
     @OperLog(title = "删除用户", businessType = 3)
     @PreAuthorize("hasAuthority('user:delete')")
     @DeleteMapping("/{id}")

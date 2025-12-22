@@ -14,10 +14,7 @@
             </div>
           </div>
           <div class="stat-footer">
-            <span class="trend up">
-              <el-icon><Top /></el-icon> 12%
-            </span>
-            <span class="label">较上月</span>
+            <span class="info-text">当前系统用户数</span>
           </div>
         </el-card>
       </el-col>
@@ -33,10 +30,7 @@
             </div>
           </div>
           <div class="stat-footer">
-            <span class="trend stable">
-              <el-icon><Minus /></el-icon> 0%
-            </span>
-            <span class="label">较上月</span>
+            <span class="info-text">当前角色配置数</span>
           </div>
         </el-card>
       </el-col>
@@ -52,10 +46,7 @@
             </div>
           </div>
           <div class="stat-footer">
-            <span class="trend up">
-              <el-icon><Top /></el-icon> 5%
-            </span>
-            <span class="label">较上月</span>
+            <span class="info-text">当前权限点总数</span>
           </div>
         </el-card>
       </el-col>
@@ -71,10 +62,7 @@
             </div>
           </div>
           <div class="stat-footer">
-            <span class="trend up">
-              <el-icon><Top /></el-icon> 28%
-            </span>
-            <span class="label">较昨日</span>
+            <span class="info-text">今日登录次数</span>
           </div>
         </el-card>
       </el-col>
@@ -135,8 +123,8 @@
         <el-table-column prop="operTime" label="操作时间" width="180" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-              {{ row.status === 1 ? '成功' : '失败' }}
+            <el-tag :type="row.status === 0 ? 'success' : 'danger'" size="small">
+              {{ row.status === 0 ? '成功' : '失败' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -303,6 +291,11 @@ onMounted(() => {
 
 .label {
   color: #909399;
+}
+
+.info-text {
+  color: #909399;
+  font-size: 12px;
 }
 
 .content-row {

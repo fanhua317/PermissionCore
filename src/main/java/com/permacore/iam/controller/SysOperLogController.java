@@ -6,6 +6,8 @@ import com.permacore.iam.domain.entity.SysOperLogEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.SysOperLogService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +21,7 @@ import java.time.LocalTime;
 /**
  * 操作日志控制器
  */
+@Tag(name = "操作日志", description = "系统操作日志查询与管理")
 @RestController
 @RequestMapping("/api/oper-log")
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class SysOperLogController {
     /**
      * 分页查询操作日志
      */
+    @Operation(summary = "分页查询", description = "根据条件分页查询操作日志")
     @GetMapping("/page")
     public Result<PageVO<SysOperLogEntity>> page(
             @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
@@ -71,6 +75,7 @@ public class SysOperLogController {
     /**
      * 获取操作日志详情
      */
+    @Operation(summary = "获取详情", description = "根据ID获取操作日志详情")
     @GetMapping("/{id}")
     public Result<SysOperLogEntity> getById(@PathVariable Long id) {
         SysOperLogEntity logEntity = operLogService.getById(id);
@@ -80,6 +85,7 @@ public class SysOperLogController {
     /**
      * 清空操作日志
      */
+    @Operation(summary = "清空日志", description = "清空所有操作日志")
     @PreAuthorize("hasAuthority('log:delete')")
     @DeleteMapping("/clear")
     public Result<Void> clear() {
@@ -91,6 +97,7 @@ public class SysOperLogController {
     /**
      * 删除单条操作日志
      */
+    @Operation(summary = "删除日志", description = "删除单条操作日志")
     @PreAuthorize("hasAuthority('log:delete')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

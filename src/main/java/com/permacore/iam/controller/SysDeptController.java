@@ -9,6 +9,8 @@ import com.permacore.iam.domain.vo.DeptTreeVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.service.SysDeptService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 /**
  * 部门管理控制器
  */
+@Tag(name = "部门管理", description = "组织架构管理")
 @RestController
 @RequestMapping("/api/dept")
 @RequiredArgsConstructor
@@ -37,6 +40,7 @@ public class SysDeptController {
     /**
      * 获取部门树形结构
      */
+    @Operation(summary = "获取部门树", description = "获取部门树形结构及人数统计")
     @GetMapping("/tree")
     public Result<List<DeptTreeVO>> tree() {
         List<SysDeptEntity> allDepts = deptService.list(
@@ -53,6 +57,7 @@ public class SysDeptController {
     /**
      * 获取部门详情
      */
+    @Operation(summary = "获取部门详情", description = "根据ID获取部门详情")
     @GetMapping("/{id}")
     public Result<SysDeptEntity> getById(@PathVariable Long id) {
         SysDeptEntity dept = deptService.getById(id);
@@ -62,6 +67,7 @@ public class SysDeptController {
     /**
      * 创建部门
      */
+    @Operation(summary = "创建部门", description = "新增部门")
     @OperLog(title = "创建部门", businessType = 1)
     @PreAuthorize("hasAuthority('dept:add')")
     @PostMapping
@@ -78,6 +84,7 @@ public class SysDeptController {
     /**
      * 更新部门
      */
+    @Operation(summary = "更新部门", description = "更新部门信息")
     @OperLog(title = "更新部门", businessType = 2)
     @PreAuthorize("hasAuthority('dept:edit')")
     @PutMapping("/{id}")
@@ -91,6 +98,7 @@ public class SysDeptController {
     /**
      * 删除部门
      */
+    @Operation(summary = "删除部门", description = "删除部门（若有子部门则无法删除）")
     @OperLog(title = "删除部门", businessType = 3)
     @PreAuthorize("hasAuthority('dept:delete')")
     @DeleteMapping("/{id}")
@@ -125,7 +133,9 @@ public class SysDeptController {
                     vo.setParentId(d.getParentId());
                     vo.setDeptName(d.getDeptName());
                     vo.setPhone(d.getPhone());
-                    vo.setOrderNum(d.getSortOrder());
+                    vo.setEmail(d.getEmail());
+                    vo.setLeaderId(d.getLeaderId());
+                    vo.setSortOrder(d.getSortOrder());
                     vo.setStatus(d.getStatus() != null ? d.getStatus().intValue() : 1);
                     vo.setCreateTime(d.getCreateTime());
 

@@ -6,6 +6,8 @@ import com.permacore.iam.domain.entity.SysLoginLogEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.SysLoginLogService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,7 @@ import java.util.Map;
 /**
  * 登录日志控制器
  */
+@Tag(name = "登录日志", description = "系统登录日志查询与管理")
 @RestController
 @RequestMapping("/api/login-log")
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class SysLoginLogController {
     /**
      * 分页查询登录日志
      */
+    @Operation(summary = "分页查询", description = "根据条件分页查询登录日志")
     @GetMapping("/page")
     public Result<PageVO<SysLoginLogEntity>> page(
             @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
@@ -76,6 +80,7 @@ public class SysLoginLogController {
     /**
      * 获取登录日志详情
      */
+    @Operation(summary = "获取详情", description = "根据ID获取登录日志详情")
     @GetMapping("/{id}")
     public Result<SysLoginLogEntity> getById(@PathVariable Long id) {
         SysLoginLogEntity logEntity = loginLogService.getById(id);
@@ -85,6 +90,7 @@ public class SysLoginLogController {
     /**
      * 清空登录日志
      */
+    @Operation(summary = "清空日志", description = "清空所有登录日志")
     @PreAuthorize("hasAuthority('log:delete')")
     @DeleteMapping("/clear")
     public Result<Void> clear() {
@@ -96,6 +102,7 @@ public class SysLoginLogController {
     /**
      * 删除单条登录日志
      */
+    @Operation(summary = "删除日志", description = "删除单条登录日志")
     @PreAuthorize("hasAuthority('log:delete')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

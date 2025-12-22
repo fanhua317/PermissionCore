@@ -3,12 +3,16 @@ package com.permacore.iam.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.permacore.iam.domain.entity.SysRoleEntity;
+import com.permacore.iam.domain.entity.SysSodConstraintEntity;
 import com.permacore.iam.domain.entity.SysUserEntity;
 import com.permacore.iam.domain.entity.SysUserRoleEntity;
 import com.permacore.iam.mapper.SysRoleMapper;
 import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.mapper.SysUserRoleMapper;
+import com.permacore.iam.service.SysSodConstraintService;
 import com.permacore.iam.utils.RedisCacheUtil;
 import com.permacore.iam.security.SecurityUser;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +48,8 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
     private final SysRoleMapper roleMapper;
     private final PermissionService permissionService;
     private final RedisCacheUtil redisCacheUtil;
+    private final SysSodConstraintService sodConstraintService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -103,6 +109,11 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
     @Override
     @Transactional
     public void assignRoles(Long userId, List<Long> roleIds) {
+        // RBAC3: 校验静态互斥约束 (SSD - Static Separation of Duty)
+        if (roleIds != null && roleIds.size() > 1) {
+            checkSsdConstraints(roleIds);
+        }
+        
         // 先删除原有角色关联
         userRoleMapper.deleteByUserId(userId);
         // 插入新的角色关联
@@ -114,7 +125,50 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
                 userRoleMapper.insert(userRole);
             }
         }
+        // 清除用户权限缓存，使新角色权限立即生效
+        clearUserCache(userId);
         log.info("角色分配完成: userId={}, roleIds={}", userId, roleIds);
+    }
+    
+    /**
+     * 校验静态职责分离约束 (SSD)
+     * 如果要分配的角色集合违反了任何SSD约束，则抛出异常
+     */
+    private void checkSsdConstraints(List<Long> roleIds) {
+        // 获取所有静态互斥约束 (constraint_type = 1)
+        List<SysSodConstraintEntity> ssdConstraints = sodConstraintService.list(
+            new LambdaQueryWrapper<SysSodConstraintEntity>()
+                .eq(SysSodConstraintEntity::getConstraintType, (byte) 1)
+        );
+        
+        Set<Long> roleIdSet = new HashSet<>(roleIds);
+        
+        for (SysSodConstraintEntity constraint : ssdConstraints) {
+            try {
+                // 解析互斥角色ID集合 (JSON数组格式)
+                List<Long> mutexRoleIds = objectMapper.readValue(
+                    constraint.getRoleSet(), 
+                    new TypeReference<List<Long>>() {}
+                );
+                
+                // 计算交集数量
+                long conflictCount = mutexRoleIds.stream()
+                    .filter(roleIdSet::contains)
+                    .count();
+                
+                // 如果用户要分配的角色中有2个或更多互斥角色，则违反约束
+                if (conflictCount >= 2) {
+                    log.warn("SSD约束冲突: constraint={}, conflictRoles={}", 
+                        constraint.getConstraintName(), 
+                        mutexRoleIds.stream().filter(roleIdSet::contains).collect(Collectors.toList()));
+                    throw new RuntimeException("角色分配违反职责分离约束: " + constraint.getConstraintName());
+                }
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                log.error("解析SoD约束失败: constraintId={}, error={}", constraint.getId(), e.getMessage());
+            }
+        }
     }
 
     @Override
