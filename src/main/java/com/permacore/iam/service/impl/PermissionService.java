@@ -57,13 +57,16 @@ public class PermissionService {
         List<Long> roleIdList = userRoleMapper.selectRoleIdsByUserId(userId);
         Set<Long> directRoleIds = roleIdList != null ? new HashSet<>(roleIdList) : new HashSet<>();
 
-        // 2. 查询每个角色的所有祖先角色（继承）
-        Set<Long> inheritedRoleIds = new HashSet<>();
-        for (Long roleId : directRoleIds) {
-            inheritedRoleIds.addAll(getAncestorRoleIds(roleId));
+        if (directRoleIds.isEmpty()) {
+            return directRoleIds;
         }
 
-        directRoleIds.addAll(inheritedRoleIds);
+        // 2. 使用递归CTE批量查询所有祖先角色（继承）
+        Set<Long> inheritedRoleIds = roleInheritanceMapper.selectAncestorIdsByDescendantIds(directRoleIds);
+
+        if (inheritedRoleIds != null && !inheritedRoleIds.isEmpty()) {
+            directRoleIds.addAll(inheritedRoleIds);
+        }
         return directRoleIds;
     }
 

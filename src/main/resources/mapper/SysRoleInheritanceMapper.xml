@@ -19,4 +19,20 @@
         SELECT ancestor_id FROM sys_role_inheritance WHERE descendant_id = #{descendantId}
     </select>
 
+    <select id="selectAncestorIdsByDescendantIds" resultType="java.lang.Long">
+        WITH RECURSIVE role_tree AS (
+            SELECT ancestor_id, descendant_id
+            FROM sys_role_inheritance
+            WHERE descendant_id IN
+            <foreach collection="descendantIds" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            UNION ALL
+            SELECT sri.ancestor_id, sri.descendant_id
+            FROM sys_role_inheritance sri
+            INNER JOIN role_tree rt ON sri.descendant_id = rt.ancestor_id
+        )
+        SELECT DISTINCT ancestor_id FROM role_tree
+    </select>
+
 </mapper>

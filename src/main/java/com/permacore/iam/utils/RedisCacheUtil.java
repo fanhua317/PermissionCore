@@ -24,6 +24,9 @@ public class RedisCacheUtil {
 
     private static final Logger log = LoggerFactory.getLogger(RedisCacheUtil.class);
 
+    public static final String CACHE_INVALIDATION_TOPIC = "cache:invalidation";
+    public static final String INVALIDATE_ALL = "ALL";
+
     @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
 
@@ -112,6 +115,9 @@ public class RedisCacheUtil {
         if (isRedisAvailable()) {
             redisTemplate.delete(key);
         }
+
+        // 广播清理通知（其他节点清理L1）
+        publishInvalidation(key);
 
         log.info("删除用户权限缓存: userId={}", userId);
     }
@@ -238,6 +244,9 @@ public class RedisCacheUtil {
         if (isRedisAvailable()) {
             redisTemplate.delete(key);
         }
+
+        // 广播清理通知（其他节点清理L1）
+        publishInvalidation(key);
     }
 
     /**
@@ -246,5 +255,26 @@ public class RedisCacheUtil {
     public void clearLocalCache() {
         localCache.invalidateAll();
         log.info("本地缓存已清除");
+    }
+
+    /**
+     * 仅清除本地缓存中的指定 key（用于接收广播）
+     */
+    public void invalidateLocalCacheKey(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        localCache.invalidate(key);
+        log.debug("本地缓存已失效: key={}", key);
+    }
+
+    /**
+     * 广播缓存失效通知（分布式环境）
+     */
+    private void publishInvalidation(String key) {
+        if (!isRedisAvailable()) {
+            return;
+        }
+        redisTemplate.convertAndSend(CACHE_INVALIDATION_TOPIC, key);
     }
 }

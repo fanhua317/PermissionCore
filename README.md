@@ -97,6 +97,11 @@ CREATE TABLE sys_sod_constraint (
 
 ## 三、系统特性概览
 
+### 近期更新
+- 升级运行环境到 **Java 21**（已在 pom 配置与启动验证）；
+- 启用 Redis 分布式缓存 + L1 本地缓存广播失效，避免多节点本地脏读；
+- 角色继承查询改为数据库递归 CTE，一次性计算全量祖先角色，降低鉴权查询延迟。
+
 - **RBAC3 权限模型**：支持用户–角色–权限三层关系，扩展角色继承和职责分离（SoD）约束；
 - **JWT 无状态认证**：基于 Spring Security 6 + JWT，实现后端无 Session 的分布式认证；
 - **JWT 强制失效机制**：结合 Redis/Caffeine 缓存与 JWT 版本号，实现登出/禁用用户后的 Token 立即失效；
@@ -111,7 +116,7 @@ CREATE TABLE sys_sod_constraint (
 ## 四、技术栈
 
 ### 后端
-- Java 17+
+- Java 21+
 - Spring Boot 3.x
 - Spring Security 6
 - MyBatis-Plus + MyBatis
@@ -165,7 +170,7 @@ CREATE TABLE sys_sod_constraint (
 
 ## 六、环境准备
 
-- JDK：17 或更高版本（已在项目中按 Java 17 配置）
+- JDK：21（已在项目中按 Java 21 配置）
 - Maven：3.8+ 建议
 - Node.js：建议 18+（你当前环境的 24.x 也可，但若遇到兼容问题建议切换到 LTS 18/20）
 - MySQL：8.0+（数据库名默认为 `permacore_iam`）
