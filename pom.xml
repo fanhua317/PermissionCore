@@ -25,7 +25,7 @@
         <hutool.version>5.8.28</hutool.version>
         <!-- 明确版本，避免父POM不可用或镜像问题导致解析失败 -->
         <caffeine.version>3.1.8</caffeine.version>
-        <lombok.version>1.18.26</lombok.version>
+        <lombok.version>1.18.32</lombok.version>
         <!-- Spring Boot version used for explicit dependency/plugin versions -->
         <spring-boot.version>3.2.9</spring-boot.version>
         <!-- keep spring-boot.version defined above -->
