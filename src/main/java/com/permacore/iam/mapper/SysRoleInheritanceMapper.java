@@ -19,4 +19,6 @@ import java.util.Set;
 public interface SysRoleInheritanceMapper extends BaseMapper<SysRoleInheritanceEntity> {
 
     Set<Long> selectAncestorIdsByDescendantId(@Param("descendantId") Long descendantId);
+
+    Set<Long> selectAncestorIdsByDescendantIds(@Param("descendantIds") Set<Long> descendantIds);
 }

@@ -16,8 +16,8 @@
     <!-- Removed <modules> section so top-level sources under src/main/java will be compiled and packaged -->
 
     <properties>
-        <!-- 将编译版本从 Java 8 升级到 Java 17，以兼容 Spring Boot 3.x -->
-        <java.version>17</java.version>
+        <!-- 将编译版本升级到 Java 21，以兼容 Spring Boot 3.x -->
+        <java.version>21</java.version>
         <!-- 升级到兼容Spring Boot 3.2.x的最新版 -->
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jwt.version>0.12.5</jwt.version>
@@ -25,7 +25,7 @@
         <hutool.version>5.8.28</hutool.version>
         <!-- 明确版本，避免父POM不可用或镜像问题导致解析失败 -->
         <caffeine.version>3.1.8</caffeine.version>
-        <lombok.version>1.18.26</lombok.version>
+        <lombok.version>1.18.32</lombok.version>
         <!-- Spring Boot version used for explicit dependency/plugin versions -->
         <spring-boot.version>3.2.9</spring-boot.version>
         <!-- keep spring-boot.version defined above -->
@@ -140,6 +140,13 @@
             <version>${redisson.version}</version>
         </dependency>
 
+        <!-- Redis (Spring Data Redis) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
+
         <!-- Hutool工具库 -->
         <dependency>
             <groupId>cn.hutool</groupId>
@@ -208,7 +215,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <release>17</release>
+                    <release>21</release>
                     <parameters>true</parameters>
                     <!-- Force forking an external javac to avoid "No compiler is provided" when Maven
                          is started with a JRE; keep forking but DO NOT require JAVA_HOME to be set explicitly. -->
