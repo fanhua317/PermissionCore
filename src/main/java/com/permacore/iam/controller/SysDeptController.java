@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,10 +43,9 @@ public class SysDeptController {
     @GetMapping("/tree")
     public Result<List<DeptTreeVO>> tree() {
         List<SysDeptEntity> allDepts = deptService.list(
-            new LambdaQueryWrapper<SysDeptEntity>()
-                .eq(SysDeptEntity::getDelFlag, 0)
-                .orderByAsc(SysDeptEntity::getSortOrder)
-        );
+                new LambdaQueryWrapper<SysDeptEntity>()
+                        .eq(SysDeptEntity::getDelFlag, 0)
+                        .orderByAsc(SysDeptEntity::getSortOrder));
 
         Map<Long, Integer> directUserCountMap = buildDeptUserCountMap();
         List<DeptTreeVO> tree = buildDeptTree(allDepts, 0L, directUserCountMap);
@@ -105,10 +103,9 @@ public class SysDeptController {
     public Result<Void> delete(@PathVariable Long id) {
         // 检查是否有子部门
         long childCount = deptService.count(
-            new LambdaQueryWrapper<SysDeptEntity>()
-                .eq(SysDeptEntity::getParentId, id)
-                .eq(SysDeptEntity::getDelFlag, 0)
-        );
+                new LambdaQueryWrapper<SysDeptEntity>()
+                        .eq(SysDeptEntity::getParentId, id)
+                        .eq(SysDeptEntity::getDelFlag, 0));
         if (childCount > 0) {
             return Result.error("存在子部门，无法删除");
         }
@@ -120,11 +117,8 @@ public class SysDeptController {
     /**
      * 构建部门树
      */
-    private List<DeptTreeVO> buildDeptTree(List<SysDeptEntity> depts, Long parentId) {
-        return buildDeptTree(depts, parentId, new HashMap<>());
-    }
-
-    private List<DeptTreeVO> buildDeptTree(List<SysDeptEntity> depts, Long parentId, Map<Long, Integer> directUserCountMap) {
+    private List<DeptTreeVO> buildDeptTree(List<SysDeptEntity> depts, Long parentId,
+            Map<Long, Integer> directUserCountMap) {
         return depts.stream()
                 .filter(d -> parentId.equals(d.getParentId()))
                 .map(d -> {
@@ -143,7 +137,8 @@ public class SysDeptController {
                     vo.setChildren(children);
 
                     int selfCount = directUserCountMap.getOrDefault(d.getId(), 0);
-                    int childTotal = children.stream().mapToInt(child -> child.getUserCount() == null ? 0 : child.getUserCount()).sum();
+                    int childTotal = children.stream()
+                            .mapToInt(child -> child.getUserCount() == null ? 0 : child.getUserCount()).sum();
                     vo.setUserCount(selfCount + childTotal);
                     return vo;
                 })
@@ -155,10 +150,10 @@ public class SysDeptController {
      */
     private Map<Long, Integer> buildDeptUserCountMap() {
         QueryWrapper<SysUserEntity> wrapper = new QueryWrapper<SysUserEntity>()
-            .select("dept_id", "COUNT(1) AS cnt")
-            .eq("del_flag", 0)
-            .isNotNull("dept_id")
-            .groupBy("dept_id");
+                .select("dept_id", "COUNT(1) AS cnt")
+                .eq("del_flag", 0)
+                .isNotNull("dept_id")
+                .groupBy("dept_id");
 
         List<Map<String, Object>> rows = sysUserMapper.selectMaps(wrapper);
 
@@ -169,7 +164,8 @@ public class SysDeptController {
             if (deptIdObj == null) {
                 continue;
             }
-            Long deptId = deptIdObj instanceof Number ? ((Number) deptIdObj).longValue() : Long.parseLong(deptIdObj.toString());
+            Long deptId = deptIdObj instanceof Number ? ((Number) deptIdObj).longValue()
+                    : Long.parseLong(deptIdObj.toString());
             int cnt = cntObj instanceof Number ? ((Number) cntObj).intValue() : Integer.parseInt(cntObj.toString());
             map.put(deptId, cnt);
         }

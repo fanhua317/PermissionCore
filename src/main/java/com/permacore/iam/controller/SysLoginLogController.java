@@ -16,10 +16,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+
 import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 登录日志控制器
@@ -46,10 +44,10 @@ public class SysLoginLogController {
             @RequestParam(name = "status", required = false) Integer status,
             @RequestParam(name = "startTime", required = false) String startTime,
             @RequestParam(name = "endTime", required = false) String endTime) {
-        
+
         Page<SysLoginLogEntity> page = new Page<>(pageNo, pageSize);
         LambdaQueryWrapper<SysLoginLogEntity> wrapper = new LambdaQueryWrapper<>();
-        
+
         if (StringUtils.hasText(username)) {
             wrapper.like(SysLoginLogEntity::getUsername, username);
         }
@@ -64,16 +62,16 @@ public class SysLoginLogController {
             LocalDate date = LocalDate.parse(endTime);
             wrapper.le(SysLoginLogEntity::getLoginTime, date.atTime(LocalTime.MAX));
         }
-        
+
         wrapper.orderByDesc(SysLoginLogEntity::getLoginTime);
-        
+
         Page<SysLoginLogEntity> result = loginLogService.page(page, wrapper);
-        
+
         // 映射字段名以匹配前端
         result.getRecords().forEach(r -> {
             // 前端期望的字段名映射已在Entity中处理
         });
-        
+
         return Result.success(PageVO.of(result));
     }
 

@@ -69,33 +69,27 @@ public class PermissionService {
         }
         return directRoleIds;
     }
-
-    /**
-     * 获取角色的所有祖先角色ID（递归）
-     */
-    private Set<Long> getAncestorRoleIds(Long roleId) {
-        return roleInheritanceMapper.selectAncestorIdsByDescendantId(roleId);
-    }
 }
 
 /*
  * 非 Lombok 版本示例：
  * public class PermissionService {
- *     private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
- *     private final SysUserRoleMapper userRoleMapper;
- *     private final SysRolePermissionMapper rolePermissionMapper;
- *     private final SysPermissionMapper permissionMapper;
- *     private final SysRoleInheritanceMapper roleInheritanceMapper;
+ * private static final Logger log =
+ * LoggerFactory.getLogger(PermissionService.class);
+ * private final SysUserRoleMapper userRoleMapper;
+ * private final SysRolePermissionMapper rolePermissionMapper;
+ * private final SysPermissionMapper permissionMapper;
+ * private final SysRoleInheritanceMapper roleInheritanceMapper;
  *
- *     public PermissionService(SysUserRoleMapper userRoleMapper,
- *                              SysRolePermissionMapper rolePermissionMapper,
- *                              SysPermissionMapper permissionMapper,
- *                              SysRoleInheritanceMapper roleInheritanceMapper) {
- *         this.userRoleMapper = userRoleMapper;
- *         this.rolePermissionMapper = rolePermissionMapper;
- *         this.permissionMapper = permissionMapper;
- *         this.roleInheritanceMapper = roleInheritanceMapper;
- *     }
- *     // 其余方法保持不变
+ * public PermissionService(SysUserRoleMapper userRoleMapper,
+ * SysRolePermissionMapper rolePermissionMapper,
+ * SysPermissionMapper permissionMapper,
+ * SysRoleInheritanceMapper roleInheritanceMapper) {
+ * this.userRoleMapper = userRoleMapper;
+ * this.rolePermissionMapper = rolePermissionMapper;
+ * this.permissionMapper = permissionMapper;
+ * this.roleInheritanceMapper = roleInheritanceMapper;
+ * }
+ * // 其余方法保持不变
  * }
  */

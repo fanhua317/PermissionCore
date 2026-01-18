@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import org.springframework.lang.NonNull;
+
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -90,7 +92,8 @@ public class RedisCacheUtil {
     /**
      * 设置用户权限缓存
      */
-    public void setUserPermissions(Long userId, Set<String> permissions, long timeout, TimeUnit unit) {
+    public void setUserPermissions(Long userId, @NonNull Set<String> permissions, long timeout,
+            @NonNull TimeUnit unit) {
         String key = PERM_USER_KEY + userId;
 
         // 1. 写Redis（如果可用）
@@ -204,7 +207,7 @@ public class RedisCacheUtil {
     /**
      * 设置JWT版本号
      */
-    public void setJwtVersion(Long userId, String version) {
+    public void setJwtVersion(Long userId, @NonNull String version) {
         String key = JWT_VERSION_KEY + userId;
 
         // 写本地缓存
@@ -219,7 +222,7 @@ public class RedisCacheUtil {
     /**
      * 设置JWT版本号（带过期时间）
      */
-    public void setJwtVersion(Long userId, String version, long timeout, TimeUnit unit) {
+    public void setJwtVersion(Long userId, @NonNull String version, long timeout, @NonNull TimeUnit unit) {
         String key = JWT_VERSION_KEY + userId;
 
         // 写本地缓存
@@ -271,7 +274,7 @@ public class RedisCacheUtil {
     /**
      * 广播缓存失效通知（分布式环境）
      */
-    private void publishInvalidation(String key) {
+    private void publishInvalidation(@NonNull String key) {
         if (!isRedisAvailable()) {
             return;
         }

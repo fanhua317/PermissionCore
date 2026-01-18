@@ -6,8 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,28 +21,28 @@ import lombok.Setter;
 @Getter
 @Setter
 @TableName("sys_sod_constraint")
-@ApiModel(value = "SysSodConstraintEntity对象", description = "职责分离约束表")
+@Schema(name = "SysSodConstraintEntity", description = "职责分离约束表")
 public class SysSodConstraintEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @ApiModelProperty("约束ID")
+    @Schema(description = "约束ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @ApiModelProperty("约束名称")
+    @Schema(description = "约束名称")
     @TableField("constraint_name")
     private String constraintName;
 
-    @ApiModelProperty("互斥角色ID数组（JSON格式）")
+    @Schema(description = "互斥角色ID数组（JSON格式）")
     @TableField("role_set")
     private String roleSet;
 
-    @ApiModelProperty("约束类型：1-静态互斥 2-动态互斥")
+    @Schema(description = "约束类型：1-静态互斥 2-动态互斥")
     @TableField("constraint_type")
     private Byte constraintType;
 
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     @TableField("create_time")
     private LocalDateTime createTime;
 }
@@ -51,18 +50,22 @@ public class SysSodConstraintEntity implements Serializable {
 /*
  * 非 Lombok 版本示例：
  * public class SysSodConstraintEntity implements Serializable {
- *     private static final long serialVersionUID = 1L;
- *     private Long id; private String constraintName; private String roleSet; private Byte constraintType; private LocalDateTime createTime;
+ * private static final long serialVersionUID = 1L;
+ * private Long id; private String constraintName; private String roleSet;
+ * private Byte constraintType; private LocalDateTime createTime;
  *
- *     public Long getId() { return id; }
- *     public void setId(Long id) { this.id = id; }
- *     public String getConstraintName() { return constraintName; }
- *     public void setConstraintName(String constraintName) { this.constraintName = constraintName; }
- *     public String getRoleSet() { return roleSet; }
- *     public void setRoleSet(String roleSet) { this.roleSet = roleSet; }
- *     public Byte getConstraintType() { return constraintType; }
- *     public void setConstraintType(Byte constraintType) { this.constraintType = constraintType; }
- *     public LocalDateTime getCreateTime() { return createTime; }
- *     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+ * public Long getId() { return id; }
+ * public void setId(Long id) { this.id = id; }
+ * public String getConstraintName() { return constraintName; }
+ * public void setConstraintName(String constraintName) { this.constraintName =
+ * constraintName; }
+ * public String getRoleSet() { return roleSet; }
+ * public void setRoleSet(String roleSet) { this.roleSet = roleSet; }
+ * public Byte getConstraintType() { return constraintType; }
+ * public void setConstraintType(Byte constraintType) { this.constraintType =
+ * constraintType; }
+ * public LocalDateTime getCreateTime() { return createTime; }
+ * public void setCreateTime(LocalDateTime createTime) { this.createTime =
+ * createTime; }
  * }
  */

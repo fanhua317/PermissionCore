@@ -15,8 +15,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.lang.NonNull;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
+
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -38,7 +39,8 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
     private final RedisCacheUtil redisCacheUtil;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         String token = resolveToken(request);
         if (StrUtil.isBlank(token)) {
@@ -59,8 +61,8 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
             }
 
             List<SimpleGrantedAuthority> authorities = resolveAuthorities(claims);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, authorities);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null,
+                    authorities);
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception ex) {
@@ -106,14 +108,16 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 /*
  * 非 Lombok 版本示例：
  * public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
- *     private static final Logger log = LoggerFactory.getLogger(JwtAuthorizationOnceFilter.class);
- *     private final JwtUtil jwtUtil;
- *     private final RedisCacheUtil redisCacheUtil;
+ * private static final Logger log =
+ * LoggerFactory.getLogger(JwtAuthorizationOnceFilter.class);
+ * private final JwtUtil jwtUtil;
+ * private final RedisCacheUtil redisCacheUtil;
  *
- *     public JwtAuthorizationOnceFilter(JwtUtil jwtUtil, RedisCacheUtil redisCacheUtil) {
- *         this.jwtUtil = jwtUtil;
- *         this.redisCacheUtil = redisCacheUtil;
- *     }
- *     // 其余方法保持不变
+ * public JwtAuthorizationOnceFilter(JwtUtil jwtUtil, RedisCacheUtil
+ * redisCacheUtil) {
+ * this.jwtUtil = jwtUtil;
+ * this.redisCacheUtil = redisCacheUtil;
+ * }
+ * // 其余方法保持不变
  * }
  */

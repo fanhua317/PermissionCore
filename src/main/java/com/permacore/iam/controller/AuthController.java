@@ -36,11 +36,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.io.File;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * 认证控制器
@@ -64,12 +63,12 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
 
     public AuthController(AuthenticationManager authenticationManager,
-                          JwtUtil jwtUtil,
-                          RedisCacheUtil redisCacheUtil,
-                          @Qualifier("sysUserMapper") SysUserMapper sysUserMapper,
-                          SysLoginLogService loginLogService,
-                          UserService userService,
-                          PasswordEncoder passwordEncoder) {
+            JwtUtil jwtUtil,
+            RedisCacheUtil redisCacheUtil,
+            @Qualifier("sysUserMapper") SysUserMapper sysUserMapper,
+            SysLoginLogService loginLogService,
+            UserService userService,
+            PasswordEncoder passwordEncoder) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
@@ -91,8 +90,8 @@ public class AuthController {
 
         try {
             // 认证
-            UsernamePasswordAuthenticationToken authToken =
-                new UsernamePasswordAuthenticationToken(loginVO.getUsername(), loginVO.getPassword());
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    loginVO.getUsername(), loginVO.getPassword());
             Authentication authentication = authenticationManager.authenticate(authToken);
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -111,7 +110,8 @@ public class AuthController {
             String refreshToken = jwtUtil.generateRefreshToken(claims);
 
             // 存储JWT版本到Redis
-            redisCacheUtil.setJwtVersion(userId, jwtUtil.getVersionFromToken(accessToken));
+            redisCacheUtil.setJwtVersion(userId,
+                    java.util.Objects.requireNonNull(jwtUtil.getVersionFromToken(accessToken)));
 
             Map<String, Object> tokenMap = new HashMap<>();
             tokenMap.put("accessToken", accessToken);
@@ -183,12 +183,18 @@ public class AuthController {
      * 解析浏览器
      */
     private String parseBrowser(String userAgent) {
-        if (userAgent == null) return "Unknown";
-        if (userAgent.contains("Edge")) return "Edge";
-        if (userAgent.contains("Chrome")) return "Chrome";
-        if (userAgent.contains("Firefox")) return "Firefox";
-        if (userAgent.contains("Safari")) return "Safari";
-        if (userAgent.contains("MSIE") || userAgent.contains("Trident")) return "IE";
+        if (userAgent == null)
+            return "Unknown";
+        if (userAgent.contains("Edge"))
+            return "Edge";
+        if (userAgent.contains("Chrome"))
+            return "Chrome";
+        if (userAgent.contains("Firefox"))
+            return "Firefox";
+        if (userAgent.contains("Safari"))
+            return "Safari";
+        if (userAgent.contains("MSIE") || userAgent.contains("Trident"))
+            return "IE";
         return "Unknown";
     }
 
@@ -196,12 +202,18 @@ public class AuthController {
      * 解析操作系统
      */
     private String parseOs(String userAgent) {
-        if (userAgent == null) return "Unknown";
-        if (userAgent.contains("Windows")) return "Windows";
-        if (userAgent.contains("Mac")) return "MacOS";
-        if (userAgent.contains("Linux")) return "Linux";
-        if (userAgent.contains("Android")) return "Android";
-        if (userAgent.contains("iPhone") || userAgent.contains("iPad")) return "iOS";
+        if (userAgent == null)
+            return "Unknown";
+        if (userAgent.contains("Windows"))
+            return "Windows";
+        if (userAgent.contains("Mac"))
+            return "MacOS";
+        if (userAgent.contains("Linux"))
+            return "Linux";
+        if (userAgent.contains("Android"))
+            return "Android";
+        if (userAgent.contains("iPhone") || userAgent.contains("iPad"))
+            return "iOS";
         return "Unknown";
     }
 
@@ -226,7 +238,8 @@ public class AuthController {
             }
 
             // 重新生成权限（确保刷新后仍有权限）
-            org.springframework.security.core.userdetails.UserDetails userDetails = userService.loadUserByUsername(user.getUsername());
+            org.springframework.security.core.userdetails.UserDetails userDetails = userService
+                    .loadUserByUsername(user.getUsername());
             List<String> permissions = userDetails.getAuthorities().stream()
                     .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
@@ -245,7 +258,7 @@ public class AuthController {
 
             // 更新JWT版本号（否则新 token 会被版本校验拒绝）
             String jwtVersion = jwtUtil.getJtiFromToken(newAccessToken);
-            redisCacheUtil.setJwtVersion(userId, jwtVersion,
+            redisCacheUtil.setJwtVersion(userId, java.util.Objects.requireNonNull(jwtVersion),
                     jwtUtil.getTokenRemainTime(newAccessToken), TimeUnit.SECONDS);
 
             Map<String, Object> tokenMap = new HashMap<>();
@@ -309,7 +322,7 @@ public class AuthController {
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        
+
         // 使用数据库中的用户信息
         username = user.getUsername();
         nickname = user.getNickname();
@@ -317,9 +330,10 @@ public class AuthController {
         String phone = user.getPhone();
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        List<String> permissions = authentication == null ? List.of() : authentication.getAuthorities().stream()
-                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+        List<String> permissions = authentication == null ? List.of()
+                : authentication.getAuthorities().stream()
+                        .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                        .collect(Collectors.toList());
 
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("userId", userId);
@@ -392,7 +406,8 @@ public class AuthController {
      */
     @Operation(summary = "上传头像", description = "上传用户头像图片")
     @PostMapping("/upload-avatar")
-    public Result<Map<String, String>> uploadAvatar(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+    public Result<Map<String, String>> uploadAvatar(@RequestParam("file") MultipartFile file,
+            HttpServletRequest request) {
         String token = resolveToken(request);
         if (token == null) {
             throw new BusinessException("未登录");
@@ -436,7 +451,7 @@ public class AuthController {
 
             // 保存文件
             Path filePath = uploadDir.resolve(newFilename);
-            file.transferTo(filePath.toFile());
+            file.transferTo(java.util.Objects.requireNonNull(filePath.toFile()));
 
             // 返回访问路径
             String avatarUrl = "/uploads/avatars/" + newFilename;

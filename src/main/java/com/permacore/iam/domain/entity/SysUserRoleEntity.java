@@ -6,8 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,24 +21,24 @@ import lombok.Setter;
 @Getter
 @Setter
 @TableName("sys_user_role")
-@ApiModel(value = "SysUserRoleEntity对象", description = "用户角色关联表")
+@Schema(name = "SysUserRoleEntity", description = "用户角色关联表")
 public class SysUserRoleEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @ApiModelProperty("关联ID")
+    @Schema(description = "关联ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     @TableField("user_id")
     private Long userId;
 
-    @ApiModelProperty("角色ID")
+    @Schema(description = "角色ID")
     @TableField("role_id")
     private Long roleId;
 
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     @TableField("create_time")
     private LocalDateTime createTime;
 }
@@ -47,16 +46,18 @@ public class SysUserRoleEntity implements Serializable {
 /*
  * 非 Lombok 版本示例：
  * public class SysUserRoleEntity implements Serializable {
- *     private static final long serialVersionUID = 1L;
- *     private Long id; private Long userId; private Long roleId; private LocalDateTime createTime;
+ * private static final long serialVersionUID = 1L;
+ * private Long id; private Long userId; private Long roleId; private
+ * LocalDateTime createTime;
  *
- *     public Long getId() { return id; }
- *     public void setId(Long id) { this.id = id; }
- *     public Long getUserId() { return userId; }
- *     public void setUserId(Long userId) { this.userId = userId; }
- *     public Long getRoleId() { return roleId; }
- *     public void setRoleId(Long roleId) { this.roleId = roleId; }
- *     public LocalDateTime getCreateTime() { return createTime; }
- *     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+ * public Long getId() { return id; }
+ * public void setId(Long id) { this.id = id; }
+ * public Long getUserId() { return userId; }
+ * public void setUserId(Long userId) { this.userId = userId; }
+ * public Long getRoleId() { return roleId; }
+ * public void setRoleId(Long roleId) { this.roleId = roleId; }
+ * public LocalDateTime getCreateTime() { return createTime; }
+ * public void setCreateTime(LocalDateTime createTime) { this.createTime =
+ * createTime; }
  * }
  */

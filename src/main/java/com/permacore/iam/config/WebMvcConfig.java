@@ -2,6 +2,7 @@ package com.permacore.iam.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -18,7 +19,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private String avatarUploadPath;
 
     @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
         // 头像文件访问映射 - 使用绝对路径
         File uploadDir = new File(avatarUploadPath);
         if (!uploadDir.isAbsolute()) {

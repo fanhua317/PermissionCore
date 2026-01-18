@@ -1,7 +1,6 @@
 package com.permacore.iam.domain.vo;
 
 import lombok.Data;
-import java.util.List;
 
 /**
  * 角色VO
