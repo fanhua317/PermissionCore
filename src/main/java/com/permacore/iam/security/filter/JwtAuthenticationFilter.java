@@ -46,10 +46,10 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     private static final String ATTR_LOGIN_USERNAME = "LOGIN_USERNAME";
 
     public JwtAuthenticationFilter(AuthenticationManager authenticationManager,
-                                   JwtUtil jwtUtil,
-                                   RedisCacheUtil redisCacheUtil,
-                                   ObjectMapper objectMapper,
-                                   SysLoginLogService loginLogService) {
+            JwtUtil jwtUtil,
+            RedisCacheUtil redisCacheUtil,
+            ObjectMapper objectMapper,
+            SysLoginLogService loginLogService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
@@ -71,11 +71,9 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
             request.setAttribute(ATTR_LOGIN_USERNAME, loginVO.getUsername());
 
             // 2. 创建认证令牌
-            UsernamePasswordAuthenticationToken token =
-                    new UsernamePasswordAuthenticationToken(
-                            loginVO.getUsername(),
-                            loginVO.getPassword()
-                    );
+            UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(
+                    loginVO.getUsername(),
+                    loginVO.getPassword());
 
             // 3. 执行认证（调用UserDetailsService）
             return authenticationManager.authenticate(token);
@@ -91,7 +89,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
      */
     @Override
     protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response,
-                                            FilterChain chain, Authentication authResult) throws IOException {
+            FilterChain chain, Authentication authResult) throws IOException {
         SecurityUser securityUser = (SecurityUser) authResult.getPrincipal();
         Long userId = securityUser.getUserId();
         String username = securityUser.getUsername();
@@ -113,7 +111,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 
         // 3. 存储JWT版本号（用于强制登出）
         String jwtVersion = jwtUtil.getJtiFromToken(accessToken);
-        redisCacheUtil.setJwtVersion(userId, jwtVersion,
+        redisCacheUtil.setJwtVersion(userId, java.util.Objects.requireNonNull(jwtVersion),
                 jwtUtil.getTokenRemainTime(accessToken), TimeUnit.SECONDS);
 
         // 4. 构建响应
@@ -135,7 +133,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
      */
     @Override
     protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response,
-                                              AuthenticationException failed) throws IOException {
+            AuthenticationException failed) throws IOException {
         log.warn("登录失败: {}", failed.getMessage());
 
         String username = (String) request.getAttribute(ATTR_LOGIN_USERNAME);
@@ -198,22 +196,34 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     }
 
     private String parseBrowser(String userAgent) {
-        if (userAgent == null) return "Unknown";
-        if (userAgent.contains("Edge")) return "Edge";
-        if (userAgent.contains("Chrome")) return "Chrome";
-        if (userAgent.contains("Firefox")) return "Firefox";
-        if (userAgent.contains("Safari")) return "Safari";
-        if (userAgent.contains("MSIE") || userAgent.contains("Trident")) return "IE";
+        if (userAgent == null)
+            return "Unknown";
+        if (userAgent.contains("Edge"))
+            return "Edge";
+        if (userAgent.contains("Chrome"))
+            return "Chrome";
+        if (userAgent.contains("Firefox"))
+            return "Firefox";
+        if (userAgent.contains("Safari"))
+            return "Safari";
+        if (userAgent.contains("MSIE") || userAgent.contains("Trident"))
+            return "IE";
         return "Unknown";
     }
 
     private String parseOs(String userAgent) {
-        if (userAgent == null) return "Unknown";
-        if (userAgent.contains("Windows")) return "Windows";
-        if (userAgent.contains("Mac")) return "MacOS";
-        if (userAgent.contains("Linux")) return "Linux";
-        if (userAgent.contains("Android")) return "Android";
-        if (userAgent.contains("iPhone") || userAgent.contains("iPad")) return "iOS";
+        if (userAgent == null)
+            return "Unknown";
+        if (userAgent.contains("Windows"))
+            return "Windows";
+        if (userAgent.contains("Mac"))
+            return "MacOS";
+        if (userAgent.contains("Linux"))
+            return "Linux";
+        if (userAgent.contains("Android"))
+            return "Android";
+        if (userAgent.contains("iPhone") || userAgent.contains("iPad"))
+            return "iOS";
         return "Unknown";
     }
 }

@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Dashboard 仪表盘控制器
@@ -36,32 +35,32 @@ public class DashboardController {
     @GetMapping("/stats")
     public Result<Map<String, Object>> getStats() {
         Map<String, Object> stats = new HashMap<>();
-        
+
         // 用户总数（排除已删除）
         LambdaQueryWrapper<SysUserEntity> userWrapper = new LambdaQueryWrapper<>();
         userWrapper.eq(SysUserEntity::getDelFlag, (byte) 0);
         stats.put("userCount", userService.count(userWrapper));
-        
+
         // 角色总数
         stats.put("roleCount", roleService.count());
-        
+
         // 权限总数
         stats.put("permissionCount", permissionService.count());
-        
+
         // 部门总数
         stats.put("deptCount", deptService.count());
-        
+
         // 今日登录次数
         LocalDateTime todayStart = LocalDateTime.now().toLocalDate().atStartOfDay();
         LambdaQueryWrapper<SysLoginLogEntity> loginWrapper = new LambdaQueryWrapper<>();
         loginWrapper.ge(SysLoginLogEntity::getLoginTime, todayStart);
         stats.put("todayLoginCount", loginLogService.count(loginWrapper));
-        
+
         // 今日操作次数
         LambdaQueryWrapper<SysOperLogEntity> operWrapper = new LambdaQueryWrapper<>();
         operWrapper.ge(SysOperLogEntity::getOperTime, todayStart);
         stats.put("todayOperCount", operLogService.count(operWrapper));
-        
+
         return Result.success(stats);
     }
 
@@ -93,12 +92,12 @@ public class DashboardController {
     @GetMapping("/system-info")
     public Result<Map<String, Object>> getSystemInfo() {
         Map<String, Object> info = new HashMap<>();
-        
+
         Runtime runtime = Runtime.getRuntime();
         long totalMemory = runtime.totalMemory() / (1024 * 1024);
         long freeMemory = runtime.freeMemory() / (1024 * 1024);
         long usedMemory = totalMemory - freeMemory;
-        
+
         info.put("javaVersion", System.getProperty("java.version"));
         info.put("osName", System.getProperty("os.name"));
         info.put("osArch", System.getProperty("os.arch"));
@@ -107,7 +106,7 @@ public class DashboardController {
         info.put("freeMemory", freeMemory + " MB");
         info.put("processors", runtime.availableProcessors());
         info.put("serverTime", LocalDateTime.now().toString());
-        
+
         return Result.success(info);
     }
 }

@@ -1,12 +1,14 @@
 package com.permacore.iam.config;
 
 import com.permacore.iam.utils.RedisCacheUtil;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
@@ -24,17 +26,19 @@ public class RedisCacheInvalidationConfig {
 
     @Bean
     public RedisMessageListenerContainer redisMessageListenerContainer(
-            RedisConnectionFactory connectionFactory,
+            @NonNull RedisConnectionFactory connectionFactory,
             MessageListenerAdapter cacheInvalidationListenerAdapter) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(cacheInvalidationListenerAdapter, new ChannelTopic(RedisCacheUtil.CACHE_INVALIDATION_TOPIC));
+        container.addMessageListener(Objects.requireNonNull(cacheInvalidationListenerAdapter),
+                new ChannelTopic(RedisCacheUtil.CACHE_INVALIDATION_TOPIC));
         return container;
     }
 
     @Bean
     public MessageListenerAdapter cacheInvalidationListenerAdapter(RedisCacheUtil redisCacheUtil) {
-        MessageListenerAdapter adapter = new MessageListenerAdapter(new RedisCacheInvalidationListener(redisCacheUtil), "handleMessage");
+        MessageListenerAdapter adapter = new MessageListenerAdapter(new RedisCacheInvalidationListener(redisCacheUtil),
+                "handleMessage");
         StringRedisSerializer serializer = new StringRedisSerializer();
         adapter.setSerializer(serializer);
         adapter.setStringSerializer(serializer);

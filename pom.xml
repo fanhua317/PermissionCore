@@ -18,6 +18,9 @@
     <properties>
         <!-- 将编译版本升级到 Java 21，以兼容 Spring Boot 3.x -->
         <java.version>21</java.version>
+        <!-- 设置编码，避免平台依赖警告 -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- 升级到兼容Spring Boot 3.2.x的最新版 -->
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jwt.version>0.12.5</jwt.version>

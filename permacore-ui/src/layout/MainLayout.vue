@@ -224,7 +224,7 @@ const passwordForm = ref({
   confirmPassword: '',
 });
 
-const validateConfirmPassword = (rule: any, value: string, callback: any) => {
+const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
   if (value !== passwordForm.value.newPassword) {
     callback(new Error('两次输入的密码不一致'));
   } else {

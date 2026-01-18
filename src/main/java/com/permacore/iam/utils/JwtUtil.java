@@ -5,7 +5,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
@@ -14,7 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
@@ -38,59 +36,64 @@ public class JwtUtil {
     private Long refreshExpiration;
 
     private SecretKey getSecretKey() {
-        byte[] keyBytes = secret.length() % 4 == 0 ? Decoders.BASE64.decode(secret) : secret.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = secret.length() % 4 == 0 ? Decoders.BASE64.decode(secret)
+                : secret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
      * 生成AccessToken
+     * 
      * @param claims 自定义载荷
      * @return Token字符串
      */
     public String generateAccessToken(Map<String, Object> claims) {
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(String.valueOf(claims.get("userId")))
-                .setId(IdUtil.fastUUID()) // JWT唯一标识(JTI)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000))
-                .signWith(getSecretKey(), SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(String.valueOf(claims.get("userId")))
+                .id(IdUtil.fastUUID()) // JWT唯一标识(JTI)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expiration * 1000))
+                .signWith(getSecretKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
     /**
      * 生成RefreshToken
+     * 
      * @param userId 用户ID
      * @return Token字符串
      */
     public String generateRefreshToken(Long userId) {
         return Jwts.builder()
-                .setSubject(String.valueOf(userId))
-                .setId(IdUtil.fastUUID())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration * 1000))
-                .signWith(getSecretKey(), SignatureAlgorithm.HS256)
+                .subject(String.valueOf(userId))
+                .id(IdUtil.fastUUID())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshExpiration * 1000))
+                .signWith(getSecretKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
     /**
      * 生成RefreshToken (带claims)
+     * 
      * @param claims 自定义载荷
      * @return Token字符串
      */
     public String generateRefreshToken(Map<String, Object> claims) {
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(String.valueOf(claims.get("userId")))
-                .setId(IdUtil.fastUUID())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration * 1000))
-                .signWith(getSecretKey(), SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(String.valueOf(claims.get("userId")))
+                .id(IdUtil.fastUUID())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshExpiration * 1000))
+                .signWith(getSecretKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
     /**
      * 从Token中获取版本号(JTI作为版本号)
+     * 
      * @param token Token字符串
      * @return 版本号
      */
@@ -100,6 +103,7 @@ public class JwtUtil {
 
     /**
      * 解析Token
+     * 
      * @param token Token字符串
      * @return Claims
      */

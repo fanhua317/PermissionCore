@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { AxiosResponse } from 'axios';
 import { ElMessage } from 'element-plus';
 import router from '../router';
 
@@ -12,10 +12,7 @@ service.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      };
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;
   },

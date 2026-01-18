@@ -24,6 +24,11 @@ spring:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
+# 禁用 Redisson
+app:
+  redis:
+    enabled: false
+
 # MyBatis Plus配置
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -42,8 +47,10 @@ mybatis-plus:
 jwt:
   secret: YourVeryLongAndSecureJwtSecretKeyForPermaCoreIAMSystem2024
   expiration: 86400000
+  refresh-expiration: 604800000
 
 # 日志级别
 logging:
   level:
     com.permacore: debug
+

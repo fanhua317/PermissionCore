@@ -6,8 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,28 +21,28 @@ import lombok.Setter;
 @Getter
 @Setter
 @TableName("sys_jwt_version")
-@ApiModel(value = "SysJwtVersionEntity对象", description = "JWT版本控制表")
+@Schema(name = "SysJwtVersionEntity", description = "JWT版本控制表")
 public class SysJwtVersionEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @ApiModelProperty("ID")
+    @Schema(description = "ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     @TableField("user_id")
     private Long userId;
 
-    @ApiModelProperty("JWT版本号")
+    @Schema(description = "JWT版本号")
     @TableField("jwt_version")
     private String jwtVersion;
 
-    @ApiModelProperty("过期时间")
+    @Schema(description = "过期时间")
     @TableField("expire_time")
     private LocalDateTime expireTime;
 
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     @TableField("create_time")
     private LocalDateTime createTime;
 }

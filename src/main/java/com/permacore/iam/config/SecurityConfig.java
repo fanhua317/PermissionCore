@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,7 +24,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.logout.LogoutFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -83,8 +83,10 @@ public class SecurityConfig {
      * 注入 JwtAuthenticationFilter 为 Bean，以便在 filterChain 中使用
      */
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(AuthenticationManager authenticationManager, SysLoginLogService loginLogService) {
-        return new JwtAuthenticationFilter(authenticationManager, jwtUtil, redisCacheUtil, objectMapper, loginLogService);
+    public JwtAuthenticationFilter jwtAuthenticationFilter(AuthenticationManager authenticationManager,
+            SysLoginLogService loginLogService) {
+        return new JwtAuthenticationFilter(authenticationManager, jwtUtil, redisCacheUtil, objectMapper,
+                loginLogService);
     }
 
     /**
@@ -100,8 +102,8 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                          JwtAuthenticationFilter jwtAuthenticationFilter,
-                                          JwtAuthorizationOnceFilter jwtAuthorizationOnceFilter) throws Exception {
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            JwtAuthorizationOnceFilter jwtAuthorizationOnceFilter) throws Exception {
         http
                 // 1. 禁用CSRF（JWT无状态，不需要CSRF）
                 .csrf(AbstractHttpConfigurer::disable)
@@ -111,7 +113,8 @@ public class SecurityConfig {
 
                 // 3. 会话管理（无状态）
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
+                        .sessionCreationPolicy(
+                                org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
 
                 // 4. 请求路径授权配置
                 .authorizeHttpRequests(auth -> auth
@@ -126,11 +129,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/actuator/**",
-                                "/test/**"
-                        ).permitAll()
+                                "/test/**")
+                        .permitAll()
                         // 其他请求都需要认证
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
 
                 // 5. 异常处理
                 .exceptionHandling(ex -> ex

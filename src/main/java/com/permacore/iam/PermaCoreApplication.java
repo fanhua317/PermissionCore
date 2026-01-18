@@ -1,6 +1,5 @@
 package com.permacore.iam;
 
-import org.mybatis.spring.annotation.MapperScan;
 import org.redisson.spring.starter.RedissonAutoConfigurationV2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +7,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * PermaCore权限管理系统启动类cd
+ * PermaCore权限管理系统启动类
  */
 @SpringBootApplication(exclude = { RedissonAutoConfigurationV2.class })
 public class PermaCoreApplication {

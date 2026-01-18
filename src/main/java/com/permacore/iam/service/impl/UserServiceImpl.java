@@ -20,9 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
+
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +40,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> implements UserDetailsService, com.permacore.iam.service.UserService {
+public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
+        implements com.permacore.iam.service.UserService {
 
     private final SysUserMapper userMapper;
     private final SysUserRoleMapper userRoleMapper;
@@ -62,22 +62,24 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
         wrapper.eq(SysUserEntity::getUsername, username);
         SysUserEntity user = userMapper.selectOne(wrapper);
 
-        if (user == null || Byte.valueOf((byte)1).equals(user.getDelFlag())) {
+        if (user == null || Byte.valueOf((byte) 1).equals(user.getDelFlag())) {
             log.warn("用户不存在: username={}", username);
             throw new UsernameNotFoundException("用户不存在");
         }
-        if (Byte.valueOf((byte)0).equals(user.getStatus())) {
+        if (Byte.valueOf((byte) 0).equals(user.getStatus())) {
             log.warn("用户已被禁用: username={}", username);
             throw new UsernameNotFoundException("用户已被禁用");
         }
         log.info("加载用户信息: userId={}, username={}", user.getId(), user.getUsername());
 
         Set<String> permissions = getUserPermissionsWithCache(user.getId());
-        List<GrantedAuthority> authorities = permissions.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
+        List<GrantedAuthority> authorities = permissions.stream().map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
 
         SecurityUser securityUser = new SecurityUser(user, authorities);
 
-        log.info("UserDetails created: username={}, password={}", securityUser.getUsername(), securityUser.getPassword());
+        log.info("UserDetails created: username={}, password={}", securityUser.getUsername(),
+                securityUser.getPassword());
         return securityUser;
     }
 
@@ -114,7 +116,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
         if (roleIds != null && roleIds.size() > 1) {
             checkSsdConstraints(roleIds);
         }
-        
+
         // 先删除原有角色关联
         userRoleMapper.deleteByUserId(userId);
         // 插入新的角色关联
@@ -130,7 +132,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
         clearUserCache(userId);
         log.info("角色分配完成: userId={}, roleIds={}", userId, roleIds);
     }
-    
+
     /**
      * 校验静态职责分离约束 (SSD)
      * 如果要分配的角色集合违反了任何SSD约束，则抛出异常
@@ -138,30 +140,29 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
     private void checkSsdConstraints(List<Long> roleIds) {
         // 获取所有静态互斥约束 (constraint_type = 1)
         List<SysSodConstraintEntity> ssdConstraints = sodConstraintService.list(
-            new LambdaQueryWrapper<SysSodConstraintEntity>()
-                .eq(SysSodConstraintEntity::getConstraintType, (byte) 1)
-        );
-        
+                new LambdaQueryWrapper<SysSodConstraintEntity>()
+                        .eq(SysSodConstraintEntity::getConstraintType, (byte) 1));
+
         Set<Long> roleIdSet = new HashSet<>(roleIds);
-        
+
         for (SysSodConstraintEntity constraint : ssdConstraints) {
             try {
                 // 解析互斥角色ID集合 (JSON数组格式)
                 List<Long> mutexRoleIds = objectMapper.readValue(
-                    constraint.getRoleSet(), 
-                    new TypeReference<List<Long>>() {}
-                );
-                
+                        constraint.getRoleSet(),
+                        new TypeReference<List<Long>>() {
+                        });
+
                 // 计算交集数量
                 long conflictCount = mutexRoleIds.stream()
-                    .filter(roleIdSet::contains)
-                    .count();
-                
+                        .filter(roleIdSet::contains)
+                        .count();
+
                 // 如果用户要分配的角色中有2个或更多互斥角色，则违反约束
                 if (conflictCount >= 2) {
-                    log.warn("SSD约束冲突: constraint={}, conflictRoles={}", 
-                        constraint.getConstraintName(), 
-                        mutexRoleIds.stream().filter(roleIdSet::contains).collect(Collectors.toList()));
+                    log.warn("SSD约束冲突: constraint={}, conflictRoles={}",
+                            constraint.getConstraintName(),
+                            mutexRoleIds.stream().filter(roleIdSet::contains).collect(Collectors.toList()));
                     throw new RuntimeException("角色分配违反职责分离约束: " + constraint.getConstraintName());
                 }
             } catch (RuntimeException e) {
@@ -195,18 +196,21 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity> i
 
 /*
  * 非 Lombok 版本示例：
- * public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
- *         implements UserDetailsService, com.permacore.iam.service.UserService {
- *     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
- *     private final SysUserMapper userMapper;
- *     private final PermissionService permissionService;
- *     private final RedisCacheUtil redisCacheUtil;
+ * public class UserServiceImpl extends ServiceImpl<SysUserMapper,
+ * SysUserEntity>
+ * implements UserDetailsService, com.permacore.iam.service.UserService {
+ * private static final Logger log =
+ * LoggerFactory.getLogger(UserServiceImpl.class);
+ * private final SysUserMapper userMapper;
+ * private final PermissionService permissionService;
+ * private final RedisCacheUtil redisCacheUtil;
  *
- *     public UserServiceImpl(SysUserMapper userMapper, PermissionService permissionService, RedisCacheUtil redisCacheUtil) {
- *         this.userMapper = userMapper;
- *         this.permissionService = permissionService;
- *         this.redisCacheUtil = redisCacheUtil;
- *     }
- *     // 其余方法保持不变
+ * public UserServiceImpl(SysUserMapper userMapper, PermissionService
+ * permissionService, RedisCacheUtil redisCacheUtil) {
+ * this.userMapper = userMapper;
+ * this.permissionService = permissionService;
+ * this.redisCacheUtil = redisCacheUtil;
+ * }
+ * // 其余方法保持不变
  * }
  */

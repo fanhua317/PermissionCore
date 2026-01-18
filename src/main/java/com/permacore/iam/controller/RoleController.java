@@ -6,9 +6,8 @@ import com.permacore.iam.domain.entity.SysRoleEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.SysRoleService;
-import com.permacore.iam.service.impl.PermissionService;
+
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,7 +29,6 @@ public class RoleController {
     private static final Logger log = LoggerFactory.getLogger(RoleController.class);
 
     private final SysRoleService roleService;
-    private final PermissionService permissionService;
 
     /**
      * 分页查询角色
@@ -39,8 +37,8 @@ public class RoleController {
     @PreAuthorize("hasAuthority('system:role:query')")
     @GetMapping("/page")
     public Result<PageVO<SysRoleEntity>> page(@RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-                                           @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
-                                           @RequestParam(name = "roleName", required = false) String roleName) {
+            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+            @RequestParam(name = "roleName", required = false) String roleName) {
         Page<SysRoleEntity> page = roleService.pageRoles(pageNo, pageSize, roleName);
         return Result.success(PageVO.of(page));
     }
@@ -114,7 +112,7 @@ public class RoleController {
     @Operation(summary = "分配权限(PUT)", description = "为角色分配权限")
     @PreAuthorize("hasAuthority('role:assignPermission')")
     @PutMapping("/{roleId}/permissions")
-    public Result<Void> updatePermissions(@PathVariable Long roleId, 
+    public Result<Void> updatePermissions(@PathVariable Long roleId,
             @RequestBody com.permacore.iam.domain.vo.AssignPermissionsVO vo) {
         roleService.assignPermissions(roleId, vo.getPermissionIds());
         log.info("更新权限: roleId={}, permissions={}", roleId, vo.getPermissionIds());
@@ -126,7 +124,8 @@ public class RoleController {
      */
     @Operation(summary = "获取角色权限", description = "获取角色拥有的权限列表")
     @GetMapping("/{roleId}/permissions")
-    public Result<List<com.permacore.iam.domain.entity.SysPermissionEntity>> getRolePermissions(@PathVariable Long roleId) {
+    public Result<List<com.permacore.iam.domain.entity.SysPermissionEntity>> getRolePermissions(
+            @PathVariable Long roleId) {
         return Result.success(roleService.getRolePermissions(roleId));
     }
 

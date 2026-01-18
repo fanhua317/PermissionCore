@@ -142,13 +142,9 @@ import {
   UserFilled,
   Key,
   Monitor,
-  Top,
-  Minus,
   ArrowRight,
   Plus,
-  Setting,
   Document,
-  OfficeBuilding,
 } from '@element-plus/icons-vue';
 
 const router = useRouter();
