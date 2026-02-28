@@ -41,7 +41,6 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final SysDeptService deptService;
 
-
     /**
      * 分页查询用户
      * 权限要求：system:user:query 或拥有任何管理权限
@@ -90,8 +89,7 @@ public class UserController {
                             .collect(Collectors.toMap(
                                     d -> d.getId(),
                                     d -> d.getDeptName(),
-                                    (a, b) -> a
-                            ));
+                                    (a, b) -> a));
                     records.forEach(u -> {
                         if (u.getDeptId() != null && deptNameMap.containsKey(u.getDeptId())) {
                             u.setDeptName(deptNameMap.get(u.getDeptId()));
@@ -118,7 +116,7 @@ public class UserController {
     @GetMapping("/{id}")
     public Result<SysUserEntity> getById(@PathVariable Long id) {
         SysUserEntity user = userService.getById(id);
-        if (user == null || Byte.valueOf((byte)1).equals(user.getDelFlag())) {
+        if (user == null || Byte.valueOf((byte) 1).equals(user.getDelFlag())) {
             return Result.error("用户不存在");
         }
         // 密码不返回前端
@@ -245,7 +243,7 @@ public class UserController {
      */
     @PreAuthorize("hasAuthority('user:assignRole')")
     @PutMapping("/{userId}/roles")
-    public Result<Void> updateRoles(@PathVariable Long userId, 
+    public Result<Void> updateRoles(@PathVariable Long userId,
             @RequestBody com.permacore.iam.domain.vo.AssignRolesVO vo) {
         userService.assignRoles(userId, vo.getRoleIds());
         // 清除权限缓存
@@ -269,7 +267,13 @@ public class UserController {
      */
     @PreAuthorize("hasAuthority('user:resetPassword')")
     @PostMapping("/{id}/reset-password")
-    public Result<Void> resetPassword(@PathVariable Long id, @RequestParam(name = "newPassword", defaultValue = "123456") String newPassword) {
+    public Result<Void> resetPassword(@PathVariable Long id, @RequestParam(name = "newPassword") String newPassword) {
+        if (newPassword == null || newPassword.isBlank()) {
+            return Result.error("新密码不能为空");
+        }
+        if (newPassword.length() < 6) {
+            return Result.error("新密码长度不能少于6位");
+        }
         SysUserEntity user = userService.getById(id);
         if (user == null) {
             return Result.error("用户不存在");
