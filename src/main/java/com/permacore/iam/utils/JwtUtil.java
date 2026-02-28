@@ -115,13 +115,13 @@ public class JwtUtil {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (ExpiredJwtException e) {
-            log.warn("Token已过期: {}", token);
+            log.warn("Token已过期: {}***", token.substring(0, Math.min(10, token.length())));
             throw new RuntimeException("Token已过期，请重新登录");
         } catch (JwtException e) {
-            log.error("Token解析失败: {}", token, e);
+            log.error("Token解析失败: {}***", token.substring(0, Math.min(10, token.length())), e);
             throw new RuntimeException("Token无效");
         } catch (Exception e) {
-            log.error("解析Token失败: {}", token, e);
+            log.error("解析Token失败: {}***", token.substring(0, Math.min(10, token.length())), e);
             throw new RuntimeException("Token解析错误");
         }
     }

@@ -47,6 +47,9 @@ public class SecurityConfig {
     private final RedisCacheUtil redisCacheUtil;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOrigins;
+
     /**
      * 密码加密器
      */
@@ -75,7 +78,7 @@ public class SecurityConfig {
         provider.setUserDetailsService((org.springframework.security.core.userdetails.UserDetailsService) userService);
         provider.setPasswordEncoder(passwordEncoder());
         // 隐藏"UserNotFoundException"详细，防止用户名枚举攻击
-        provider.setHideUserNotFoundExceptions(false);
+        provider.setHideUserNotFoundExceptions(true);
         return provider;
     }
 
@@ -128,8 +131,7 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/actuator/**",
-                                "/test/**")
+                                "/actuator/**")
                         .permitAll()
                         // 其他请求都需要认证
                         .anyRequest().authenticated())
@@ -152,7 +154,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*")); // 生产环境请配置具体域名
+        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(","))); // 通过 app.cors.allowed-origins
+                                                                                          // 配置
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true); // 允许携带Cookie

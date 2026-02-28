@@ -65,7 +65,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         try {
             // 1. 解析请求体
             LoginVO loginVO = objectMapper.readValue(request.getInputStream(), LoginVO.class);
-            log.info("用户登录尝试: username={}, password={}", loginVO.getUsername(), loginVO.getPassword()); // Debug log
+            log.info("用户登录尝试: username={}", loginVO.getUsername());
 
             // 保存 username 以便失败时记录日志（失败回调无法再次读取 inputStream）
             request.setAttribute(ATTR_LOGIN_USERNAME, loginVO.getUsername());

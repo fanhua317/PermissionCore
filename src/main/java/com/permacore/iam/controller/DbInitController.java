@@ -15,8 +15,11 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
-@RequestMapping("/test/admin")
+@RequestMapping("/api/admin/db")
+@PreAuthorize("hasAuthority('admin:*')")
 public class DbInitController {
 
     private final JdbcTemplate jdbcTemplate;
