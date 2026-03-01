@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  # ==================== MySQL 数据库 ====================
+  mysql:
+    image: mysql:8.0
+    container_name: permacore-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_DATABASE: permacore_iam
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 首次启动时自动执行建表和初始化脚本（按文件名字母顺序）
+      - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./src/main/resources/db/init-permissions.sql:/docker-entrypoint-initdb.d/02-init-permissions.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ==================== Redis 缓存 ====================
+  redis:
+    image: redis:7-alpine
+    container_name: permacore-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== 后端服务 ====================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: permacore-backend
+    restart: unless-stopped
+    environment:
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      REDIS_PASSWORD: ""
+      JWT_SECRET: ${JWT_SECRET:-PermaCore-IAM-SecretKey-2025-Enterprise-Grade-RBAC-System-Very-Long-Key-For-HS256}
+    ports:
+      - "54321:54321"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ==================== 前端服务（Nginx） ====================
+  frontend:
+    build:
+      context: ./permacore-ui
+      dockerfile: Dockerfile
+    container_name: permacore-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local

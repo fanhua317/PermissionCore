@@ -1,0 +1,76 @@
+# Docker 部署环境配置
+# 使用方式: java -jar xxx.jar --spring.profiles.active=docker
+
+server:
+  port: 54321
+
+spring:
+  application:
+    name: permacore-iam
+
+  # 数据源 - 指向 Docker Compose 中的 mysql 服务
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://mysql:3306/permacore_iam?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:123456}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  # Redis - 指向 Docker Compose 中的 redis 服务
+  data:
+    redis:
+      host: redis
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: -1ms
+
+# Redisson
+app:
+  redis:
+    enabled: true
+
+# MyBatis Plus
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.permacore.iam.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:PermaCore-IAM-SecretKey-2025-Enterprise-Grade-RBAC-System-Very-Long-Key-For-HS256}
+  expiration: 7200
+  refresh-expiration: 604800
+
+# 日志（Docker 中关闭 SQL 日志打印，减少日志量）
+logging:
+  level:
+    root: INFO
+    com.permacore.iam: INFO
+
+# Springdoc
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /doc.html
