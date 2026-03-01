@@ -1,0 +1,27 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Git
+.git/
+.github/
+
+# 构建产物
+target/
+permacore-ui/node_modules/
+permacore-ui/dist/
+
+# 日志
+*.log
+
+# Docker 自身
+docker-compose.yml
+.dockerignore
+
+# 其他
+*.md
+*.ps1
+*.bat
+count-lines.ps1
+interview_qa_v2.md
