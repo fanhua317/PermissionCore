@@ -5,7 +5,7 @@
         <div class="card-header">
           <span class="title">职责分离约束（RBAC3）</span>
           <div class="header-actions">
-            <el-button type="primary" @click="handleCreate">
+            <el-button v-if="canAdd" type="primary" @click="handleCreate">
               <el-icon><Plus /></el-icon>新建约束
             </el-button>
           </div>
@@ -69,12 +69,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="170" />
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column v-if="rowActionVisible" label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="handleEdit(row)">
+            <el-button v-if="canEdit" size="small" type="primary" link @click="handleEdit(row)">
               <el-icon><Edit /></el-icon>编辑
             </el-button>
-            <el-button size="small" type="danger" link @click="handleDelete(row.id)">
+            <el-button v-if="canDelete" size="small" type="danger" link @click="handleDelete(row.id)">
               <el-icon><Delete /></el-icon>删除
             </el-button>
           </template>
@@ -143,12 +143,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import { Plus, Edit, Delete, Search, Refresh, QuestionFilled } from '@element-plus/icons-vue';
 
+const userStore = useUserStore();
 const loading = ref(false);
 const submitLoading = ref(false);
 const tableData = ref<any[]>([]);
@@ -163,6 +165,11 @@ const searchForm = ref({
   constraintName: '',
   constraintType: null as number | null,
 });
+
+const canAdd = computed(() => userStore.hasPermission('sod:add'));
+const canEdit = computed(() => userStore.hasPermission('sod:edit'));
+const canDelete = computed(() => userStore.hasPermission('sod:delete'));
+const rowActionVisible = computed(() => canEdit.value || canDelete.value);
 
 const dialogVisible = ref(false);
 const dialogTitle = ref('新建约束');

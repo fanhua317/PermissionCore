@@ -40,6 +40,7 @@ public class SysDeptController {
      * 获取部门树形结构
      */
     @Operation(summary = "获取部门树", description = "获取部门树形结构及人数统计")
+    @PreAuthorize("hasAuthority('system:dept:query')")
     @GetMapping("/tree")
     public Result<List<DeptTreeVO>> tree() {
         List<SysDeptEntity> allDepts = deptService.list(
@@ -56,6 +57,7 @@ public class SysDeptController {
      * 获取部门详情
      */
     @Operation(summary = "获取部门详情", description = "根据ID获取部门详情")
+    @PreAuthorize("hasAuthority('system:dept:query')")
     @GetMapping("/{id}")
     public Result<SysDeptEntity> getById(@PathVariable Long id) {
         SysDeptEntity dept = deptService.getById(id);

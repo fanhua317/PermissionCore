@@ -45,8 +45,8 @@ public class UserController {
      * 分页查询用户
      * 权限要求：system:user:query 或拥有任何管理权限
      */
-    // @PreAuthorize("hasAuthority('system:user:query')")
     @Operation(summary = "分页查询用户", description = "根据条件分页查询用户列表")
+    @PreAuthorize("hasAuthority('system:user:query')")
     @GetMapping("/page")
     public Result<PageVO<SysUserEntity>> page(@ModelAttribute com.permacore.iam.domain.vo.UserQueryVO query) {
         log.info("Requesting user list: {}", query);
@@ -263,6 +263,7 @@ public class UserController {
     /**
      * 获取用户拥有的角色（返回完整角色对象列表）
      */
+    @PreAuthorize("hasAnyAuthority('system:user:query','user:assignRole')")
     @GetMapping("/{userId}/roles")
     public Result<List<com.permacore.iam.domain.entity.SysRoleEntity>> getUserRoles(@PathVariable Long userId) {
         List<com.permacore.iam.domain.entity.SysRoleEntity> roles = userService.getUserRoles(userId);

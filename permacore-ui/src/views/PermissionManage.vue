@@ -8,7 +8,7 @@
             <el-button @click="handleRefresh">
               <el-icon><Refresh /></el-icon>刷新
             </el-button>
-            <el-button type="primary" @click="handleCreate(null)">
+            <el-button v-if="canAdd" type="primary" @click="handleCreate(null)">
               <el-icon><Plus /></el-icon>新建权限
             </el-button>
             <el-button type="success" @click="expandAll">
@@ -56,15 +56,15 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right" align="center">
+        <el-table-column v-if="rowActionVisible" label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="handleCreate(row)">
+            <el-button v-if="canAdd" size="small" type="primary" link @click="handleCreate(row)">
               <el-icon><Plus /></el-icon>添加
             </el-button>
-            <el-button size="small" type="primary" link @click="handleEdit(row)">
+            <el-button v-if="canEdit" size="small" type="primary" link @click="handleEdit(row)">
               <el-icon><Edit /></el-icon>编辑
             </el-button>
-            <el-button size="small" type="danger" link @click="handleDelete(row.id)">
+            <el-button v-if="canDelete" size="small" type="danger" link @click="handleDelete(row.id)">
               <el-icon><Delete /></el-icon>删除
             </el-button>
           </template>
@@ -125,12 +125,19 @@ import { ref, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import { Refresh, Plus, Edit, Delete, Menu, Switch, Operation, Expand, Fold } from '@element-plus/icons-vue';
 
+const userStore = useUserStore();
 const loading = ref(false);
 const submitLoading = ref(false);
 const permissionTree = ref<any[]>([]);
 const tableRef = ref();
+
+const canAdd = computed(() => userStore.hasPermission('permission:add'));
+const canEdit = computed(() => userStore.hasPermission('permission:edit'));
+const canDelete = computed(() => userStore.hasPermission('permission:delete'));
+const rowActionVisible = computed(() => canAdd.value || canEdit.value || canDelete.value);
 
 const dialogVisible = ref(false);
 const dialogTitle = ref('新建权限');

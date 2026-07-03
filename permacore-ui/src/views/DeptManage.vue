@@ -7,7 +7,7 @@
           <template #header>
             <div class="card-header">
               <span>部门结构</span>
-              <el-button type="primary" size="small" @click="handleCreate(null)">
+              <el-button v-if="canAdd" type="primary" size="small" @click="handleCreate(null)">
                 <el-icon><Plus /></el-icon>
               </el-button>
             </div>
@@ -49,14 +49,14 @@
           <template #header>
             <div class="card-header">
               <span>{{ currentDept ? currentDept.deptName : '请选择部门' }}</span>
-              <div class="header-actions" v-if="currentDept">
-                <el-button type="primary" @click="handleCreate(currentDept)">
+              <div class="header-actions" v-if="currentDept && rowActionVisible">
+                <el-button v-if="canAdd" type="primary" @click="handleCreate(currentDept)">
                   <el-icon><Plus /></el-icon>添加子部门
                 </el-button>
-                <el-button @click="handleEdit(currentDept)">
+                <el-button v-if="canEdit" @click="handleEdit(currentDept)">
                   <el-icon><Edit /></el-icon>编辑
                 </el-button>
-                <el-button type="danger" @click="handleDelete(currentDept.id)">
+                <el-button v-if="canDelete" type="danger" @click="handleDelete(currentDept.id)">
                   <el-icon><Delete /></el-icon>删除
                 </el-button>
               </div>
@@ -148,8 +148,10 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import { Plus, Search, Edit, Delete, OfficeBuilding } from '@element-plus/icons-vue';
 
+const userStore = useUserStore();
 const deptTree = ref<any[]>([]);
 const currentDept = ref<any>(null);
 const deptUsers = ref<any[]>([]);
@@ -162,6 +164,11 @@ const dialogTitle = ref('新建部门');
 const isEdit = ref(false);
 const submitLoading = ref(false);
 const formRef = ref<FormInstance>();
+
+const canAdd = computed(() => userStore.hasPermission('dept:add'));
+const canEdit = computed(() => userStore.hasPermission('dept:edit'));
+const canDelete = computed(() => userStore.hasPermission('dept:delete'));
+const rowActionVisible = computed(() => canAdd.value || canEdit.value || canDelete.value);
 
 const emptyForm = () => ({
   id: null as number | null,

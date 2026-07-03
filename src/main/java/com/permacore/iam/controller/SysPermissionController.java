@@ -33,6 +33,7 @@ public class SysPermissionController {
      * 获取权限树形结构
      */
     @Operation(summary = "获取权限树", description = "获取所有权限的树形结构")
+    @PreAuthorize("hasAnyAuthority('system:permission:query','role:assignPermission')")
     @GetMapping("/tree")
     public Result<List<PermissionTreeVO>> tree() {
         List<SysPermissionEntity> allPerms = permissionService.list(
@@ -48,6 +49,7 @@ public class SysPermissionController {
      * 获取权限列表（平铺）
      */
     @Operation(summary = "获取权限列表", description = "获取所有权限列表（平铺）")
+    @PreAuthorize("hasAnyAuthority('system:permission:query','role:assignPermission')")
     @GetMapping("/list")
     public Result<List<SysPermissionEntity>> list() {
         List<SysPermissionEntity> perms = permissionService.list(
@@ -61,6 +63,7 @@ public class SysPermissionController {
      * 获取权限详情
      */
     @Operation(summary = "获取权限详情", description = "根据ID获取权限详情")
+    @PreAuthorize("hasAnyAuthority('system:permission:query','role:assignPermission')")
     @GetMapping("/{id}")
     public Result<SysPermissionEntity> getById(@PathVariable Long id) {
         SysPermissionEntity perm = permissionService.getById(id);

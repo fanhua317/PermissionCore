@@ -33,6 +33,7 @@ public class SysRoleInheritanceController {
     /**
      * 获取角色的父角色列表
      */
+    @PreAuthorize("hasAnyAuthority('system:role:query','role:setInheritance')")
     @GetMapping("/parents/{roleId}")
     public Result<List<RoleVO>> getParentRoles(@PathVariable Long roleId) {
         // 查询当前角色的所有直接父角色（depth=1）
@@ -67,6 +68,7 @@ public class SysRoleInheritanceController {
     /**
      * 获取角色的子角色列表
      */
+    @PreAuthorize("hasAnyAuthority('system:role:query','role:setInheritance')")
     @GetMapping("/children/{roleId}")
     public Result<List<RoleVO>> getChildRoles(@PathVariable Long roleId) {
         // 查询当前角色的所有直接子角色（depth=1）
@@ -104,24 +106,9 @@ public class SysRoleInheritanceController {
     @PreAuthorize("hasAuthority('role:setInheritance')")
     @PutMapping("/{roleId}")
     public Result<Void> updateInheritance(@PathVariable Long roleId, @RequestBody RoleInheritanceVO vo) {
-        // 删除当前角色的所有父角色关系
-        inheritanceService.remove(
-            new LambdaQueryWrapper<SysRoleInheritanceEntity>()
-                .eq(SysRoleInheritanceEntity::getDescendantId, roleId)
-        );
-        
-        // 添加新的父角色关系
-        if (vo.getParentRoleIds() != null && !vo.getParentRoleIds().isEmpty()) {
-            for (Long parentId : vo.getParentRoleIds()) {
-                SysRoleInheritanceEntity inheritance = new SysRoleInheritanceEntity();
-                inheritance.setAncestorId(parentId);
-                inheritance.setDescendantId(roleId);
-                inheritance.setDepth(1);
-                inheritanceService.save(inheritance);
-            }
-        }
-        
-        log.info("更新角色继承: roleId={}, parents={}", roleId, vo.getParentRoleIds());
+        List<Long> parentRoleIds = vo == null ? List.of() : vo.getParentRoleIds();
+        inheritanceService.updateParentRoles(roleId, parentRoleIds);
+        log.info("更新角色继承: roleId={}, parents={}", roleId, parentRoleIds);
         return Result.success();
     }
 
@@ -131,22 +118,8 @@ public class SysRoleInheritanceController {
     @PreAuthorize("hasAuthority('role:setInheritance')")
     @PostMapping("/{childId}/parent/{parentId}")
     public Result<Void> addInheritance(@PathVariable Long childId, @PathVariable Long parentId) {
-        // 检查是否已存在
-        long count = inheritanceService.count(
-            new LambdaQueryWrapper<SysRoleInheritanceEntity>()
-                .eq(SysRoleInheritanceEntity::getAncestorId, parentId)
-                .eq(SysRoleInheritanceEntity::getDescendantId, childId)
-        );
-        
-        if (count == 0) {
-            SysRoleInheritanceEntity inheritance = new SysRoleInheritanceEntity();
-            inheritance.setAncestorId(parentId);
-            inheritance.setDescendantId(childId);
-            inheritance.setDepth(1);
-            inheritanceService.save(inheritance);
-            log.info("添加角色继承: child={}, parent={}", childId, parentId);
-        }
-        
+        inheritanceService.addInheritance(childId, parentId);
+        log.info("添加角色继承: child={}, parent={}", childId, parentId);
         return Result.success();
     }
 
@@ -156,11 +129,7 @@ public class SysRoleInheritanceController {
     @PreAuthorize("hasAuthority('role:setInheritance')")
     @DeleteMapping("/{childId}/parent/{parentId}")
     public Result<Void> removeInheritance(@PathVariable Long childId, @PathVariable Long parentId) {
-        inheritanceService.remove(
-            new LambdaQueryWrapper<SysRoleInheritanceEntity>()
-                .eq(SysRoleInheritanceEntity::getAncestorId, parentId)
-                .eq(SysRoleInheritanceEntity::getDescendantId, childId)
-        );
+        inheritanceService.removeInheritance(childId, parentId);
         log.info("删除角色继承: child={}, parent={}", childId, parentId);
         return Result.success();
     }

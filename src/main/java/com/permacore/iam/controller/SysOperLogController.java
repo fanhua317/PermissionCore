@@ -35,6 +35,7 @@ public class SysOperLogController {
      * 分页查询操作日志
      */
     @Operation(summary = "分页查询", description = "根据条件分页查询操作日志")
+    @PreAuthorize("hasAuthority('system:log:query')")
     @GetMapping("/page")
     public Result<PageVO<SysOperLogEntity>> page(
             @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
@@ -76,6 +77,7 @@ public class SysOperLogController {
      * 获取操作日志详情
      */
     @Operation(summary = "获取详情", description = "根据ID获取操作日志详情")
+    @PreAuthorize("hasAuthority('system:log:query')")
     @GetMapping("/{id}")
     public Result<SysOperLogEntity> getById(@PathVariable Long id) {
         SysOperLogEntity logEntity = operLogService.getById(id);

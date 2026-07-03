@@ -20,7 +20,7 @@
             <el-button @click="handleRefresh">
               <el-icon><Refresh /></el-icon>刷新
             </el-button>
-            <el-button type="primary" @click="handleCreate">
+            <el-button v-if="canAdd" type="primary" @click="handleCreate">
               <el-icon><Plus /></el-icon>新建角色
             </el-button>
           </div>
@@ -42,23 +42,24 @@
               v-model="row.status"
               :active-value="1"
               :inactive-value="0"
+              :disabled="!canEdit"
               @change="handleStatusChange(row)"
             />
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="260" fixed="right" align="center">
+        <el-table-column v-if="rowActionVisible" label="操作" width="260" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="handlePermission(row)">
+            <el-button v-if="canAssignPermission" size="small" type="primary" link @click="handlePermission(row)">
               <el-icon><Key /></el-icon>权限
             </el-button>
-            <el-button size="small" type="primary" link @click="handleInheritance(row)">
+            <el-button v-if="canSetInheritance" size="small" type="primary" link @click="handleInheritance(row)">
               <el-icon><Connection /></el-icon>继承
             </el-button>
-            <el-button size="small" type="primary" link @click="handleEdit(row)">
+            <el-button v-if="canEdit" size="small" type="primary" link @click="handleEdit(row)">
               <el-icon><Edit /></el-icon>编辑
             </el-button>
-            <el-button size="small" type="danger" link @click="handleDelete(row.id)">
+            <el-button v-if="canDelete" size="small" type="danger" link @click="handleDelete(row.id)">
               <el-icon><Delete /></el-icon>删除
             </el-button>
           </template>
@@ -144,12 +145,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import { Search, Refresh, Plus, Key, Connection, Edit, Delete } from '@element-plus/icons-vue';
 
+const userStore = useUserStore();
 const loading = ref(false);
 const submitLoading = ref(false);
 const roleList = ref<any[]>([]);
@@ -172,6 +175,15 @@ const currentRoleId = ref<number | null>(null);
 const inheritanceDialogVisible = ref(false);
 const selectedParentRoles = ref<number[]>([]);
 const availableParentRoles = ref<any[]>([]);
+
+const canAdd = computed(() => userStore.hasPermission('role:add'));
+const canEdit = computed(() => userStore.hasPermission('role:edit'));
+const canDelete = computed(() => userStore.hasPermission('role:delete'));
+const canAssignPermission = computed(() => userStore.hasPermission('role:assignPermission'));
+const canSetInheritance = computed(() => userStore.hasPermission('role:setInheritance'));
+const rowActionVisible = computed(
+  () => canAssignPermission.value || canSetInheritance.value || canEdit.value || canDelete.value,
+);
 
 const emptyForm = () => ({
   id: null as number | null,

@@ -20,10 +20,10 @@
             <el-button @click="handleRefresh">
               <el-icon><Refresh /></el-icon>刷新
             </el-button>
-            <el-button type="danger" :disabled="!selectedUserIds.length" @click="handleBatchDelete">
+            <el-button v-if="canDelete" type="danger" :disabled="!selectedUserIds.length" @click="handleBatchDelete">
               <el-icon><Delete /></el-icon>批量删除
             </el-button>
-            <el-button type="primary" @click="handleCreate">
+            <el-button v-if="canAdd" type="primary" @click="handleCreate">
               <el-icon><Plus /></el-icon>新建用户
             </el-button>
           </div>
@@ -37,7 +37,7 @@
         stripe
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="48" align="center" />
+        <el-table-column v-if="canDelete" type="selection" width="48" align="center" />
         <el-table-column prop="id" label="ID" width="80" align="center" />
         <el-table-column prop="username" label="用户名" width="150">
           <template #default="{ row }">
@@ -58,23 +58,24 @@
               v-model="row.status"
               :active-value="1"
               :inactive-value="0"
+              :disabled="!canEdit"
               @change="handleStatusChange(row)"
             />
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="280" fixed="right" align="center">
+        <el-table-column v-if="rowActionVisible" label="操作" width="280" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="handleAssignRole(row)">
+            <el-button v-if="canAssignRole" size="small" type="primary" link @click="handleAssignRole(row)">
               <el-icon><UserFilled /></el-icon>角色
             </el-button>
-            <el-button size="small" type="warning" link @click="openResetPassword(row)">
+            <el-button v-if="canResetPassword" size="small" type="warning" link @click="openResetPassword(row)">
               <el-icon><Lock /></el-icon>重置密码
             </el-button>
-            <el-button size="small" type="primary" link @click="handleEdit(row)">
+            <el-button v-if="canEdit" size="small" type="primary" link @click="handleEdit(row)">
               <el-icon><Edit /></el-icon>编辑
             </el-button>
-            <el-button size="small" type="danger" link @click="handleDelete(row.id)">
+            <el-button v-if="canDelete" size="small" type="danger" link @click="handleDelete(row.id)">
               <el-icon><Delete /></el-icon>删除
             </el-button>
           </template>
@@ -173,12 +174,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import { Search, Refresh, Plus, UserFilled, Edit, Delete, Lock } from '@element-plus/icons-vue';
 
+const userStore = useUserStore();
 const loading = ref(false);
 const submitLoading = ref(false);
 const userList = ref<any[]>([]);
@@ -206,6 +209,15 @@ const resetPasswordForm = ref({
   username: '',
   newPassword: 'Admin@123456',
 });
+
+const canAdd = computed(() => userStore.hasPermission('user:add'));
+const canEdit = computed(() => userStore.hasPermission('user:edit'));
+const canDelete = computed(() => userStore.hasPermission('user:delete'));
+const canAssignRole = computed(() => userStore.hasPermission('user:assignRole'));
+const canResetPassword = computed(() => userStore.hasPermission('user:resetPassword'));
+const rowActionVisible = computed(
+  () => canAssignRole.value || canResetPassword.value || canEdit.value || canDelete.value,
+);
 
 const emptyForm = () => ({
   id: null as number | null,

@@ -40,7 +40,7 @@
             <el-button @click="handleRefresh">
               <el-icon><Refresh /></el-icon>刷新
             </el-button>
-            <el-button type="danger" @click="handleClear">
+            <el-button v-if="canDelete" type="danger" @click="handleClear">
               <el-icon><Delete /></el-icon>清空日志
             </el-button>
           </div>
@@ -127,11 +127,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import { Search, Refresh, Delete, View } from '@element-plus/icons-vue';
 
+const userStore = useUserStore();
 const loading = ref(false);
 const logList = ref<any[]>([]);
 const pageNo = ref(1);
@@ -141,6 +143,7 @@ const total = ref(0);
 const searchOperator = ref('');
 const searchStatus = ref<number | undefined>(undefined);
 const dateRange = ref<[string, string] | null>(null);
+const canDelete = computed(() => userStore.hasPermission('log:delete'));
 
 const detailVisible = ref(false);
 const currentLog = ref<any>(null);

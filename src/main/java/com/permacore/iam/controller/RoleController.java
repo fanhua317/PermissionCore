@@ -123,6 +123,7 @@ public class RoleController {
      * 获取角色拥有的权限（返回权限对象列表）
      */
     @Operation(summary = "获取角色权限", description = "获取角色拥有的权限列表")
+    @PreAuthorize("hasAnyAuthority('system:role:query','role:assignPermission')")
     @GetMapping("/{roleId}/permissions")
     public Result<List<com.permacore.iam.domain.entity.SysPermissionEntity>> getRolePermissions(
             @PathVariable Long roleId) {

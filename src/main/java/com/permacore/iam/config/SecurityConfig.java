@@ -49,7 +49,7 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final RoleSessionService roleSessionService;
 
-    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}")
     private String allowedOrigins;
 
     /**

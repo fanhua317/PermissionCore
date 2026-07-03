@@ -36,6 +36,7 @@ public class SysLoginLogController {
      * 分页查询登录日志
      */
     @Operation(summary = "分页查询", description = "根据条件分页查询登录日志")
+    @PreAuthorize("hasAuthority('system:log:query')")
     @GetMapping("/page")
     public Result<PageVO<SysLoginLogEntity>> page(
             @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
@@ -79,6 +80,7 @@ public class SysLoginLogController {
      * 获取登录日志详情
      */
     @Operation(summary = "获取详情", description = "根据ID获取登录日志详情")
+    @PreAuthorize("hasAuthority('system:log:query')")
     @GetMapping("/{id}")
     public Result<SysLoginLogEntity> getById(@PathVariable Long id) {
         SysLoginLogEntity logEntity = loginLogService.getById(id);
