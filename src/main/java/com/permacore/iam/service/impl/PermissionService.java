@@ -19,6 +19,8 @@ import java.util.TreeSet;
 @RequiredArgsConstructor
 public class PermissionService {
 
+    private static final String ADMIN_PERMISSION = "admin:*";
+
     private final SysUserRoleMapper userRoleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysPermissionMapper permissionMapper;
@@ -42,7 +44,7 @@ public class PermissionService {
         }
 
         Set<String> permissions = permissionMapper.selectPermKeysByIds(permissionIds);
-        return permissions == null ? new TreeSet<>() : new TreeSet<>(permissions);
+        return expandAdminPermission(permissions);
     }
 
     public Set<Long> getRoleIdsWithInheritance(Collection<Long> directRoleIds) {
@@ -56,5 +58,18 @@ public class PermissionService {
             roleIds.addAll(inheritedRoleIds);
         }
         return roleIds;
+    }
+
+    protected Set<String> expandAdminPermission(Set<String> permissions) {
+        TreeSet<String> result = permissions == null ? new TreeSet<>() : new TreeSet<>(permissions);
+        if (!result.contains(ADMIN_PERMISSION)) {
+            return result;
+        }
+
+        Set<String> allEnabledPermissions = permissionMapper.selectAllEnabledPermKeys();
+        if (allEnabledPermissions != null && !allEnabledPermissions.isEmpty()) {
+            result.addAll(allEnabledPermissions);
+        }
+        return result;
     }
 }

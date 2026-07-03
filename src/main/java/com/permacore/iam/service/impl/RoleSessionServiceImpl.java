@@ -41,6 +41,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleSessionServiceImpl implements RoleSessionService {
 
+    private static final String ADMIN_PERMISSION = "admin:*";
+
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleMapper roleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
@@ -114,7 +116,7 @@ public class RoleSessionServiceImpl implements RoleSessionService {
             return new TreeSet<>();
         }
         Set<String> permissions = permissionMapper.selectPermKeysByIds(permissionIds);
-        return permissions == null ? new TreeSet<>() : new TreeSet<>(permissions);
+        return expandAdminPermission(permissions);
     }
 
     @Override
@@ -304,5 +306,18 @@ public class RoleSessionServiceImpl implements RoleSessionService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private Set<String> expandAdminPermission(Set<String> permissions) {
+        TreeSet<String> result = permissions == null ? new TreeSet<>() : new TreeSet<>(permissions);
+        if (!result.contains(ADMIN_PERMISSION)) {
+            return result;
+        }
+
+        Set<String> allEnabledPermissions = permissionMapper.selectAllEnabledPermKeys();
+        if (allEnabledPermissions != null && !allEnabledPermissions.isEmpty()) {
+            result.addAll(allEnabledPermissions);
+        }
+        return result;
     }
 }

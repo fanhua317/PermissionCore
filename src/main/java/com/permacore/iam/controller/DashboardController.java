@@ -6,6 +6,7 @@ import com.permacore.iam.domain.entity.*;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -32,6 +33,7 @@ public class DashboardController {
     /**
      * 获取统计数据
      */
+    @PreAuthorize("hasAnyAuthority('admin:*','system:user:query','system:role:query','system:permission:query','system:dept:query','system:log:query')")
     @GetMapping("/stats")
     public Result<Map<String, Object>> getStats() {
         Map<String, Object> stats = new HashMap<>();
@@ -67,6 +69,7 @@ public class DashboardController {
     /**
      * 获取最近登录日志（5条）
      */
+    @PreAuthorize("hasAnyAuthority('admin:*','system:log:query')")
     @GetMapping("/recent-logins")
     public Result<List<SysLoginLogEntity>> getRecentLogins() {
         LambdaQueryWrapper<SysLoginLogEntity> wrapper = new LambdaQueryWrapper<>();
@@ -78,6 +81,7 @@ public class DashboardController {
     /**
      * 获取最近操作日志（5条）
      */
+    @PreAuthorize("hasAnyAuthority('admin:*','system:log:query')")
     @GetMapping("/recent-operations")
     public Result<List<SysOperLogEntity>> getRecentOperations() {
         LambdaQueryWrapper<SysOperLogEntity> wrapper = new LambdaQueryWrapper<>();
@@ -89,6 +93,7 @@ public class DashboardController {
     /**
      * 获取系统信息
      */
+    @PreAuthorize("hasAuthority('admin:*')")
     @GetMapping("/system-info")
     public Result<Map<String, Object>> getSystemInfo() {
         Map<String, Object> info = new HashMap<>();

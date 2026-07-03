@@ -5,6 +5,7 @@ import com.permacore.iam.annotation.OperLog;
 import com.permacore.iam.domain.entity.SysRoleEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.service.SysRoleInheritanceService;
 import com.permacore.iam.service.SysRoleService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ public class RoleController {
     private static final Logger log = LoggerFactory.getLogger(RoleController.class);
 
     private final SysRoleService roleService;
+    private final SysRoleInheritanceService roleInheritanceService;
 
     /**
      * 分页查询角色
@@ -138,7 +140,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('role:setInheritance')")
     @PostMapping("/{roleId}/inherit/{parentId}")
     public Result<Void> setInheritance(@PathVariable Long roleId, @PathVariable Long parentId) {
-        roleService.setRoleInheritance(roleId, parentId);
+        roleInheritanceService.addInheritance(roleId, parentId);
         log.info("设置角色继承: roleId={}, parentId={}", roleId, parentId);
         return Result.success();
     }

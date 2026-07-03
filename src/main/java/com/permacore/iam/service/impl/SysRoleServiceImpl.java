@@ -119,25 +119,6 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRoleEntity
     }
 
     @Override
-    @Transactional
-    public void setRoleInheritance(Long roleId, Long parentId) {
-        // 检查是否已存在
-        LambdaQueryWrapper<SysRoleInheritanceEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysRoleInheritanceEntity::getDescendantId, roleId)
-               .eq(SysRoleInheritanceEntity::getAncestorId, parentId);
-        if (roleInheritanceMapper.selectCount(wrapper) > 0) {
-            log.info("角色继承关系已存在: descendantId={}, ancestorId={}", roleId, parentId);
-            return;
-        }
-        // 创建继承关系
-        SysRoleInheritanceEntity inheritance = new SysRoleInheritanceEntity();
-        inheritance.setDescendantId(roleId);
-        inheritance.setAncestorId(parentId);
-        roleInheritanceMapper.insert(inheritance);
-        log.info("设置角色继承: descendantId={}, ancestorId={}", roleId, parentId);
-    }
-
-    @Override
     public List<Long> getDescendantRoleIds(Long roleId) {
         Set<Long> descendants = new HashSet<>();
         Queue<Long> queue = new LinkedList<>();

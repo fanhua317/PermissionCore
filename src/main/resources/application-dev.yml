@@ -2,7 +2,7 @@
 # 使用方式: java -jar xxx.jar --spring.profiles.active=dev
 
 server:
-  port: 8081
+  port: 54321
 
 spring:
   application:

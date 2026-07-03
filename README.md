@@ -224,11 +224,11 @@ CREATE TABLE sys_sod_constraint (
    # 如需指定 profile：
    java -jar target/permacore-iam-1.0.0-SNAPSHOT.jar --spring.profiles.active=dev
    ```
-   应用端口配置参考 `application.yml`（生产默认 54321，开发 dev profile 为 8081）。
+   应用端口配置参考 `application.yml` 与 `application-dev.yml`，默认与 dev profile 均为 54321。
 
 4. **访问接口文档**
    - 启动成功后，可通过浏览器访问：
-     - Knife4j/Swagger 文档地址（示例）：`http://localhost:8081/doc.html`（dev 环境）
+     - Knife4j/Swagger 文档地址（示例）：`http://localhost:54321/doc.html`
 
 ## 九、前端启动步骤
 
@@ -250,7 +250,7 @@ CREATE TABLE sys_sod_constraint (
    ```
    默认开发地址通常为：`http://localhost:5173`。
 
-> 注意：前端请求的后端 API 基础地址在 `vite.config.ts` 中通过代理配置，当前代理到 `http://localhost:54321`。
+> 注意：前端请求的后端 API 基础地址在 `vite.config.ts` 中通过代理配置，默认代理到 `http://localhost:54321`；如需临时切换，可设置 `VITE_API_PROXY_TARGET`。
 
 ## 十、默认账号信息
 

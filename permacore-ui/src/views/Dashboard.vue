@@ -71,7 +71,7 @@
     <!-- 快捷操作和系统信息 -->
     <el-row :gutter="20" class="content-row">
       <el-col :xs="24" :lg="16">
-        <el-card class="quick-actions" shadow="hover">
+        <el-card v-if="quickActions.length" class="quick-actions" shadow="hover">
           <template #header>
             <div class="card-header">
               <span>快捷操作</span>
@@ -107,7 +107,7 @@
     </el-row>
 
     <!-- 最近操作日志 -->
-    <el-card class="recent-logs" shadow="hover">
+    <el-card v-if="canViewLogs" class="recent-logs" shadow="hover">
       <template #header>
         <div class="card-header">
           <span>最近操作日志</span>
@@ -134,9 +134,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, markRaw } from 'vue';
+import { computed, ref, onMounted, markRaw } from 'vue';
 import { useRouter } from 'vue-router';
 import request from '@/utils/request';
+import { useUserStore } from '@/store/user';
 import {
   User,
   UserFilled,
@@ -148,6 +149,7 @@ import {
 } from '@element-plus/icons-vue';
 
 const router = useRouter();
+const userStore = useUserStore();
 
 const stats = ref({
   userCount: 0,
@@ -156,12 +158,25 @@ const stats = ref({
   todayLogin: 0,
 });
 
-const quickActions = ref([
-  { title: '新建用户', icon: markRaw(Plus), color: '#409eff', path: '/user' },
-  { title: '角色管理', icon: markRaw(UserFilled), color: '#67c23a', path: '/role' },
-  { title: '权限配置', icon: markRaw(Key), color: '#e6a23c', path: '/permission' },
-  { title: '系统日志', icon: markRaw(Document), color: '#909399', path: '/oper-log' },
-]);
+const canViewStats = computed(() =>
+  userStore.hasAnyPermission([
+    'system:user:query',
+    'system:role:query',
+    'system:permission:query',
+    'system:dept:query',
+    'system:log:query',
+  ])
+);
+const canViewLogs = computed(() => userStore.hasPermission('system:log:query'));
+
+const quickActions = computed(() =>
+  [
+    { title: '新建用户', icon: markRaw(Plus), color: '#409eff', path: '/user', permission: 'system:user' },
+    { title: '角色管理', icon: markRaw(UserFilled), color: '#67c23a', path: '/role', permission: 'system:role' },
+    { title: '权限配置', icon: markRaw(Key), color: '#e6a23c', path: '/permission', permission: 'system:permission' },
+    { title: '系统日志', icon: markRaw(Document), color: '#909399', path: '/oper-log', permission: 'system:log' },
+  ].filter((action) => userStore.hasPermission(action.permission))
+);
 
 const systemInfo = ref([
   { label: '系统版本', value: 'v1.0.0' },
@@ -179,6 +194,7 @@ const handleAction = (path: string) => {
 };
 
 const fetchStats = async () => {
+  if (!canViewStats.value) return;
   try {
     const res: any = await request.get('/api/dashboard/stats');
     stats.value = {
@@ -187,9 +203,7 @@ const fetchStats = async () => {
       permissionCount: res?.permissionCount ?? 0,
       todayLogin: res?.todayLoginCount ?? 0,
     };
-  } catch (error) {
-    console.error('Failed to fetch stats:', error);
-    // 使用默认值
+  } catch {
     stats.value = {
       userCount: 0,
       roleCount: 0,
@@ -200,13 +214,13 @@ const fetchStats = async () => {
 };
 
 const fetchRecentLogs = async () => {
+  if (!canViewLogs.value) return;
   try {
     const res: any = await request.get('/api/oper-log/page', {
       params: { pageNo: 1, pageSize: 5 },
     });
     recentLogs.value = res?.records ?? [];
-  } catch (error) {
-    console.error('Failed to fetch logs:', error);
+  } catch {
     recentLogs.value = [];
   }
 };

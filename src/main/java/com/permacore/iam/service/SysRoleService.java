@@ -36,7 +36,5 @@ public interface SysRoleService extends IService<SysRoleEntity> {
      */
     List<SysPermissionEntity> getRolePermissions(Long roleId);
 
-    void setRoleInheritance(Long roleId, Long parentId);
-
     List<Long> getDescendantRoleIds(Long roleId);
 }

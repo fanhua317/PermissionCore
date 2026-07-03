@@ -11,6 +11,5 @@ public interface RoleService {
     void deleteRoleCascade(Long id);
     void assignPermissions(Long roleId, java.util.List<Long> permissionIds);
     java.util.List<Long> getRolePermissionIds(Long roleId);
-    void setRoleInheritance(Long roleId, Long parentId);
     java.util.List<Long> getDescendantRoleIds(Long roleId);
 }

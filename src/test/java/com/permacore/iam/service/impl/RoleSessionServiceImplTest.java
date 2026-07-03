@@ -112,6 +112,18 @@ class RoleSessionServiceImplTest {
         assertThat(state.getPermissions()).containsExactly("system:role:query", "system:user:query");
     }
 
+    @Test
+    void adminWildcardPermissionsAreExpandedForSessionTokens() {
+        when(rolePermissionMapper.selectPermissionIdsByRoleIds(anySet())).thenReturn(Set.of(100L));
+        when(permissionMapper.selectPermKeysByIds(anySet())).thenReturn(Set.of("admin:*"));
+        when(permissionMapper.selectAllEnabledPermKeys())
+                .thenReturn(Set.of("admin:*", "system:user:query", "user:add"));
+
+        Set<String> permissions = service.getPermissionsByEffectiveRoleIds(Set.of(1L));
+
+        assertThat(permissions).containsExactly("admin:*", "system:user:query", "user:add");
+    }
+
     private SysRoleEntity role(Long id, String roleKey, String roleName, Integer sortOrder) {
         SysRoleEntity role = new SysRoleEntity();
         role.setId(id);
