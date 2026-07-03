@@ -1,32 +1,19 @@
-# Code generation helper
+# Code Generation Helper
 
-This project includes a Maven `codegen` profile to run the code generator using an in-memory H2 database.
+The code generator lives in the independent `codegen` Maven module. The root project does not provide a `-Pcodegen` profile.
 
-Quick steps (PowerShell):
-
-1. Open PowerShell and cd to project root (where `pom.xml` is):
+PowerShell from the project root:
 
 ```powershell
-cd "C:\Users\Administrator\IdeaProjects\Permission Core"
+cd "D:\学习\RBAC\PermissionCore"
+mvn -f codegen/pom.xml -DuseH2=true -DskipTests org.codehaus.mojo:exec-maven-plugin:3.1.0:java
 ```
 
-2. (Optional) Ensure JDK available in session (replace path with your JDK):
+Equivalent flow:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot'
-$env:PATH = $env:JAVA_HOME + '\\bin;' + $env:PATH
-java -version
-javac -version
+cd "D:\学习\RBAC\PermissionCore\codegen"
+mvn -DuseH2=true -DskipTests org.codehaus.mojo:exec-maven-plugin:3.1.0:java
 ```
 
-3. Run code generator (one command):
-
-```powershell
-mvn -Pcodegen -DskipTests generate-sources
-```
-
-The profile runs the `exec-maven-plugin` in the `generate-sources` phase and sets `useH2=true` so the generator will use an in-memory H2 DB and create minimal tables automatically.
-
-4. After it finishes, refresh the project and check `src/main/java/com/permacore/iam/domain/entity`, `mapper`, `service`, and `src/main/resources/mapper` for generated files.
-
-If the run fails, paste the full Maven output here and I'll diagnose further.
+`useH2=true` makes the generator use an in-memory H2 database and create the minimal metadata tables it needs.

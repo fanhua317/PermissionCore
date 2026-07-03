@@ -113,7 +113,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
     @Transactional
     public void assignRoles(Long userId, List<Long> roleIds) {
         // RBAC3: 校验静态互斥约束 (SSD - Static Separation of Duty)
-        if (roleIds != null && roleIds.size() > 1) {
+        if (roleIds != null && !roleIds.isEmpty()) {
             checkSsdConstraints(roleIds);
         }
 
@@ -143,7 +143,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
                 new LambdaQueryWrapper<SysSodConstraintEntity>()
                         .eq(SysSodConstraintEntity::getConstraintType, (byte) 1));
 
-        Set<Long> roleIdSet = new HashSet<>(roleIds);
+        Set<Long> roleIdSet = permissionService.getRoleIdsWithInheritance(roleIds);
 
         for (SysSodConstraintEntity constraint : ssdConstraints) {
             try {

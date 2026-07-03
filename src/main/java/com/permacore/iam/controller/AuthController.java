@@ -5,8 +5,11 @@ import com.permacore.iam.domain.entity.SysLoginLogEntity;
 import com.permacore.iam.domain.entity.SysUserEntity;
 import com.permacore.iam.domain.vo.LoginVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.RoleSessionUpdateVO;
+import com.permacore.iam.domain.vo.SessionRoleStateVO;
 import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.security.handler.BusinessException;
+import com.permacore.iam.service.RoleSessionService;
 import com.permacore.iam.service.SysLoginLogService;
 import com.permacore.iam.service.UserService;
 import com.permacore.iam.utils.JwtUtil;
@@ -15,36 +18,36 @@ import io.jsonwebtoken.Claims;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-/**
- * 认证控制器
- */
-@Tag(name = "认证管理", description = "用户登录、注册、获取信息等接口")
+@Tag(name = "认证管理", description = "登录、Token、当前用户和会话角色接口")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -61,6 +64,7 @@ public class AuthController {
     private final SysLoginLogService loginLogService;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final RoleSessionService roleSessionService;
 
     public AuthController(AuthenticationManager authenticationManager,
             JwtUtil jwtUtil,
@@ -68,7 +72,8 @@ public class AuthController {
             @Qualifier("sysUserMapper") SysUserMapper sysUserMapper,
             SysLoginLogService loginLogService,
             UserService userService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            RoleSessionService roleSessionService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
@@ -76,209 +81,63 @@ public class AuthController {
         this.loginLogService = loginLogService;
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.roleSessionService = roleSessionService;
     }
 
-    /**
-     * 登录接口
-     */
-    @Operation(summary = "用户登录", description = "使用用户名和密码登录，返回Token")
+    @Operation(summary = "用户登录", description = "使用用户名和密码登录，返回Token和默认激活角色")
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody LoginVO loginVO, HttpServletRequest request) {
-        log.info("用户登录请求: username={}", loginVO.getUsername());
         String ipAddress = getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
-
         try {
-            // 认证
-            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    loginVO.getUsername(), loginVO.getPassword());
-            Authentication authentication = authenticationManager.authenticate(authToken);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                    loginVO.getUsername(), loginVO.getPassword()));
 
-            // 通过用户名查询用户ID
-            LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(SysUserEntity::getUsername, loginVO.getUsername());
-            SysUserEntity user = sysUserMapper.selectOne(wrapper);
-            Long userId = user != null ? user.getId() : 1L;
+            SysUserEntity user = findUserByUsername(loginVO.getUsername());
+            if (user == null) {
+                throw new BusinessException("用户不存在");
+            }
 
-            // 生成Token
-            Map<String, Object> claims = new HashMap<>();
-            claims.put("userId", userId);
-            claims.put("username", loginVO.getUsername());
-
-            String accessToken = jwtUtil.generateAccessToken(claims);
-            String refreshToken = jwtUtil.generateRefreshToken(claims);
-
-            // 存储JWT版本到Redis
-            redisCacheUtil.setJwtVersion(userId,
-                    java.util.Objects.requireNonNull(jwtUtil.getVersionFromToken(accessToken)));
-
-            Map<String, Object> tokenMap = new HashMap<>();
-            tokenMap.put("accessToken", accessToken);
-            tokenMap.put("refreshToken", refreshToken);
-            tokenMap.put("tokenType", "Bearer");
-            tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(accessToken));
-
-            // 记录登录成功日志
+            SessionRoleStateVO state = roleSessionService.buildDefaultState(user.getId());
+            Map<String, Object> tokenMap = issueTokens(user, state);
             recordLoginLog(loginVO.getUsername(), ipAddress, userAgent, (byte) 1, "登录成功");
-
-            log.info("用户登录成功: username={}", loginVO.getUsername());
             return Result.success(tokenMap);
-
         } catch (BadCredentialsException e) {
-            log.warn("登录失败: 用户名或密码错误, username={}", loginVO.getUsername());
-            // 记录登录失败日志
             recordLoginLog(loginVO.getUsername(), ipAddress, userAgent, (byte) 0, "用户名或密码错误");
             throw new BusinessException("用户名或密码错误");
         } catch (Exception e) {
-            log.error("登录异常: {}", e.getMessage());
-            // 记录登录异常日志
             recordLoginLog(loginVO.getUsername(), ipAddress, userAgent, (byte) 0, e.getMessage());
             throw new BusinessException("登录失败: " + e.getMessage());
         }
     }
 
-    /**
-     * 记录登录日志
-     */
-    private void recordLoginLog(String username, String ipAddress, String userAgent, byte status, String message) {
-        try {
-            SysLoginLogEntity loginLog = new SysLoginLogEntity();
-            loginLog.setUsername(username);
-            loginLog.setIpAddress(ipAddress);
-            loginLog.setLocation("本地");
-            loginLog.setBrowser(parseBrowser(userAgent));
-            loginLog.setOs(parseOs(userAgent));
-            loginLog.setLoginTime(LocalDateTime.now());
-            loginLog.setStatus(status);
-            loginLog.setMessage(message);
-            loginLogService.save(loginLog);
-        } catch (Exception e) {
-            log.error("记录登录日志失败: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * 获取客户端IP地址
-     */
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        // 多个代理情况，取第一个IP
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        return ip;
-    }
-
-    /**
-     * 解析浏览器
-     */
-    private String parseBrowser(String userAgent) {
-        if (userAgent == null)
-            return "Unknown";
-        if (userAgent.contains("Edge"))
-            return "Edge";
-        if (userAgent.contains("Chrome"))
-            return "Chrome";
-        if (userAgent.contains("Firefox"))
-            return "Firefox";
-        if (userAgent.contains("Safari"))
-            return "Safari";
-        if (userAgent.contains("MSIE") || userAgent.contains("Trident"))
-            return "IE";
-        return "Unknown";
-    }
-
-    /**
-     * 解析操作系统
-     */
-    private String parseOs(String userAgent) {
-        if (userAgent == null)
-            return "Unknown";
-        if (userAgent.contains("Windows"))
-            return "Windows";
-        if (userAgent.contains("Mac"))
-            return "MacOS";
-        if (userAgent.contains("Linux"))
-            return "Linux";
-        if (userAgent.contains("Android"))
-            return "Android";
-        if (userAgent.contains("iPhone") || userAgent.contains("iPad"))
-            return "iOS";
-        return "Unknown";
-    }
-
-    /**
-     * 刷新Token
-     */
-    @Operation(summary = "刷新Token", description = "使用RefreshToken获取新的AccessToken")
+    @Operation(summary = "刷新Token", description = "使用RefreshToken获取新的AccessToken，并保持当前激活角色")
     @PostMapping("/refresh")
     public Result<Map<String, Object>> refresh(@RequestBody Map<String, String> params) {
         String refreshToken = params.get("refreshToken");
-        if (refreshToken == null) {
+        if (refreshToken == null || refreshToken.isBlank()) {
             throw new BusinessException("RefreshToken不能为空");
         }
 
         try {
-            // 验证RefreshToken
-            Long userId = jwtUtil.getUserIdFromToken(refreshToken);
-
+            Claims refreshClaims = jwtUtil.parseToken(refreshToken);
+            Long userId = Long.parseLong(refreshClaims.getSubject());
             SysUserEntity user = sysUserMapper.selectById(userId);
             if (user == null) {
                 throw new BusinessException("用户不存在");
             }
 
-            // 重新生成权限（确保刷新后仍有权限）
-            org.springframework.security.core.userdetails.UserDetails userDetails = userService
-                    .loadUserByUsername(user.getUsername());
-            List<String> permissions = userDetails.getAuthorities().stream()
-                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                    .collect(Collectors.toList());
-
-            // 生成新的AccessToken
-            Map<String, Object> claims = new HashMap<>();
-            claims.put("userId", userId);
-            claims.put("username", user.getUsername());
-            claims.put("nickname", user.getNickname());
-            claims.put("permissions", permissions);
-
-            String newAccessToken = jwtUtil.generateAccessToken(claims);
-
-            // 旋转 RefreshToken（更安全，也和前端拦截器契合）
-            String newRefreshToken = jwtUtil.generateRefreshToken(userId);
-
-            // 更新JWT版本号（否则新 token 会被版本校验拒绝）
-            String jwtVersion = jwtUtil.getJtiFromToken(newAccessToken);
-            redisCacheUtil.setJwtVersion(userId, java.util.Objects.requireNonNull(jwtVersion),
-                    jwtUtil.getTokenRemainTime(newAccessToken), TimeUnit.SECONDS);
-
-            Map<String, Object> tokenMap = new HashMap<>();
-            tokenMap.put("accessToken", newAccessToken);
-            tokenMap.put("refreshToken", newRefreshToken);
-            tokenMap.put("tokenType", "Bearer");
-            tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(newAccessToken));
-
-            log.info("Token刷新成功: userId={}", userId);
-            return Result.success(tokenMap);
-
+            List<Long> activeRoleIds = roleSessionService.parseRoleIdsClaim(refreshClaims.get("activeRoleIds"));
+            SessionRoleStateVO state = activeRoleIds.isEmpty()
+                    ? roleSessionService.buildDefaultState(userId)
+                    : roleSessionService.buildState(userId, activeRoleIds);
+            return Result.success(issueTokens(user, state));
         } catch (Exception e) {
             log.warn("Token刷新失败: {}", e.getMessage());
             throw new BusinessException("RefreshToken无效或已过期");
         }
     }
 
-    /**
-     * 登出（强制失效JWT）
-     */
     @Operation(summary = "用户登出", description = "使当前Token失效")
     @PostMapping("/logout")
     public Result<Void> logout(HttpServletRequest request) {
@@ -286,13 +145,10 @@ public class AuthController {
         if (token != null) {
             try {
                 Long userId = jwtUtil.getUserIdFromToken(token);
-                // 删除JWT版本号，使Token失效
                 redisCacheUtil.deleteJwtVersion(userId);
-                // 清除权限缓存
                 redisCacheUtil.deleteUserPermissions(userId);
-
+                SecurityContextHolder.clearContext();
                 log.info("用户登出: userId={}", userId);
-                return Result.success();
             } catch (Exception e) {
                 log.warn("登出处理失败: {}", e.getMessage());
             }
@@ -300,71 +156,57 @@ public class AuthController {
         return Result.success();
     }
 
-    /**
-     * 获取当前登录用户信息
-     */
-    @Operation(summary = "获取用户信息", description = "获取当前登录用户的详细信息")
+    @Operation(summary = "获取当前用户信息", description = "获取当前登录用户信息和当前会话权限")
     @GetMapping("/info")
     public Result<Map<String, Object>> getUserInfo(HttpServletRequest request) {
-        String token = resolveToken(request);
-        if (token == null) {
-            throw new BusinessException("未登录");
-        }
-
-        Long userId = jwtUtil.getUserIdFromToken(token);
+        String token = requireToken(request);
         Claims claims = jwtUtil.parseToken(token);
-
-        String username = claims.get("username") != null ? claims.get("username").toString() : null;
-        String nickname = claims.get("nickname") != null ? claims.get("nickname").toString() : null;
-
-        // 始终从数据库获取最新用户信息以确保数据完整
+        Long userId = Long.parseLong(claims.getSubject());
         SysUserEntity user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
 
-        // 使用数据库中的用户信息
-        username = user.getUsername();
-        nickname = user.getNickname();
-        String email = user.getEmail();
-        String phone = user.getPhone();
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        List<String> permissions = authentication == null ? List.of()
-                : authentication.getAuthorities().stream()
-                        .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                        .collect(Collectors.toList());
-
+        SessionRoleStateVO state = buildStateFromClaims(userId, claims);
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("userId", userId);
-        userInfo.put("username", username);
-        userInfo.put("nickname", nickname);
-        userInfo.put("email", email);
-        userInfo.put("phone", phone);
-        userInfo.put("permissions", permissions);
-
+        userInfo.put("username", user.getUsername());
+        userInfo.put("nickname", user.getNickname());
+        userInfo.put("email", user.getEmail());
+        userInfo.put("phone", user.getPhone());
+        roleSessionService.appendSessionState(userInfo, state);
         return Result.success(userInfo);
     }
 
-    private String resolveToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
+    @Operation(summary = "获取会话角色", description = "获取可激活角色、当前激活角色、有效角色、DSD冲突和当前权限")
+    @GetMapping("/session-roles")
+    public Result<SessionRoleStateVO> getSessionRoles(HttpServletRequest request) {
+        String token = requireToken(request);
+        Claims claims = jwtUtil.parseToken(token);
+        Long userId = Long.parseLong(claims.getSubject());
+        return Result.success(buildStateFromClaims(userId, claims));
     }
 
-    /**
-     * 修改当前用户密码
-     */
-    @Operation(summary = "修改密码", description = "修改当前登录用户的密码")
-    @PostMapping("/change-password")
-    public Result<Void> changePassword(@RequestBody Map<String, String> params, HttpServletRequest request) {
-        String token = resolveToken(request);
-        if (token == null) {
-            throw new BusinessException("未登录");
+    @Operation(summary = "切换会话角色", description = "切换当前激活角色，并返回新的Token和权限")
+    @PutMapping("/session-roles")
+    public Result<Map<String, Object>> updateSessionRoles(@RequestBody RoleSessionUpdateVO vo,
+            HttpServletRequest request) {
+        String token = requireToken(request);
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        SysUserEntity user = sysUserMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
         }
 
+        List<Long> requestedRoleIds = vo == null ? List.of() : vo.getActiveRoleIds();
+        SessionRoleStateVO state = roleSessionService.buildState(userId, requestedRoleIds);
+        return Result.success(issueTokens(user, state));
+    }
+
+    @Operation(summary = "修改密码", description = "修改当前登录用户密码")
+    @PostMapping("/change-password")
+    public Result<Void> changePassword(@RequestBody Map<String, String> params, HttpServletRequest request) {
+        String token = requireToken(request);
         String oldPassword = params.get("oldPassword");
         String newPassword = params.get("newPassword");
 
@@ -383,55 +225,35 @@ public class AuthController {
         if (user == null) {
             return Result.error("用户不存在");
         }
-
-        // 验证旧密码
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             return Result.error("旧密码错误");
         }
 
-        // 更新密码
         user.setPassword(passwordEncoder.encode(newPassword));
         sysUserMapper.updateById(user);
-
-        // 清除缓存，使当前token失效，要求重新登录
         userService.clearUserCache(userId);
         redisCacheUtil.deleteJwtVersion(userId);
-
-        log.info("用户修改密码成功: userId={}", userId);
         return Result.success();
     }
 
-    /**
-     * 上传头像
-     */
-    @Operation(summary = "上传头像", description = "上传用户头像图片")
+    @Operation(summary = "上传头像", description = "上传当前用户头像图片")
     @PostMapping("/upload-avatar")
     public Result<Map<String, String>> uploadAvatar(@RequestParam("file") MultipartFile file,
             HttpServletRequest request) {
-        String token = resolveToken(request);
-        if (token == null) {
-            throw new BusinessException("未登录");
-        }
-
+        String token = requireToken(request);
         if (file == null || file.isEmpty()) {
             return Result.error("请选择要上传的文件");
         }
-
-        // 验证文件类型
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             return Result.error("只能上传图片文件");
         }
-
-        // 验证文件大小（最大2MB）
         if (file.getSize() > 2 * 1024 * 1024) {
             return Result.error("图片大小不能超过2MB");
         }
 
         Long userId = jwtUtil.getUserIdFromToken(token);
-
         try {
-            // 确保上传目录存在 - 使用绝对路径
             java.io.File uploadDirFile = new java.io.File(avatarUploadPath);
             if (!uploadDirFile.isAbsolute()) {
                 uploadDirFile = new java.io.File(System.getProperty("user.dir"), avatarUploadPath);
@@ -441,47 +263,28 @@ public class AuthController {
                 Files.createDirectories(uploadDir);
             }
 
-            // 生成唯一文件名
             String originalFilename = file.getOriginalFilename();
             String extension = "";
             if (originalFilename != null && originalFilename.contains(".")) {
                 extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
             String newFilename = "avatar_" + userId + "_" + UUID.randomUUID().toString().substring(0, 8) + extension;
-
-            // 保存文件
             Path filePath = uploadDir.resolve(newFilename);
-            file.transferTo(java.util.Objects.requireNonNull(filePath.toFile()));
-
-            // 返回访问路径
-            String avatarUrl = "/uploads/avatars/" + newFilename;
-
-            // 更新用户头像（如果用户表有avatar字段的话，这里可以更新）
-            // 目前SysUserEntity没有avatar字段，可以在前端localStorage保存
+            file.transferTo(Objects.requireNonNull(filePath.toFile()));
 
             Map<String, String> result = new HashMap<>();
-            result.put("avatarUrl", avatarUrl);
-
-            log.info("用户上传头像成功: userId={}, file={}", userId, newFilename);
+            result.put("avatarUrl", "/uploads/avatars/" + newFilename);
             return Result.success(result);
-
         } catch (IOException e) {
             log.error("头像上传失败: {}", e.getMessage());
             return Result.error("头像上传失败");
         }
     }
 
-    /**
-     * 更新当前用户信息（昵称、邮箱、手机）
-     */
-    @Operation(summary = "更新个人信息", description = "更新当前用户的昵称、邮箱、手机号")
+    @Operation(summary = "更新个人信息", description = "更新当前登录用户昵称、邮箱、手机号")
     @PutMapping("/profile")
     public Result<Void> updateProfile(@RequestBody Map<String, String> params, HttpServletRequest request) {
-        String token = resolveToken(request);
-        if (token == null) {
-            throw new BusinessException("未登录");
-        }
-
+        String token = requireToken(request);
         Long userId = jwtUtil.getUserIdFromToken(token);
         SysUserEntity user = sysUserMapper.selectById(userId);
         if (user == null) {
@@ -497,11 +300,138 @@ public class AuthController {
         if (params.containsKey("phone")) {
             user.setPhone(params.get("phone"));
         }
-
         sysUserMapper.updateById(user);
         userService.clearUserCache(userId);
-
-        log.info("用户更新个人信息成功: userId={}", userId);
         return Result.success();
+    }
+
+    private Map<String, Object> issueTokens(SysUserEntity user, SessionRoleStateVO state) {
+        Map<String, Object> claims = roleSessionService.buildJwtClaims(
+                user.getId(), user.getUsername(), user.getNickname(), state);
+        String accessToken = jwtUtil.generateAccessToken(claims);
+        String refreshToken = jwtUtil.generateRefreshToken(claims);
+
+        redisCacheUtil.setJwtVersion(user.getId(), Objects.requireNonNull(jwtUtil.getJtiFromToken(accessToken)),
+                jwtUtil.getTokenRemainTime(accessToken), TimeUnit.SECONDS);
+
+        Map<String, Object> tokenMap = new HashMap<>();
+        tokenMap.put("accessToken", accessToken);
+        tokenMap.put("refreshToken", refreshToken);
+        tokenMap.put("tokenType", "Bearer");
+        tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(accessToken));
+        roleSessionService.appendSessionState(tokenMap, state);
+        return tokenMap;
+    }
+
+    private SessionRoleStateVO buildStateFromClaims(Long userId, Claims claims) {
+        List<Long> activeRoleIds = roleSessionService.parseRoleIdsClaim(claims.get("activeRoleIds"));
+        if (activeRoleIds.isEmpty()) {
+            return roleSessionService.buildDefaultState(userId);
+        }
+        try {
+            return roleSessionService.buildState(userId, activeRoleIds);
+        } catch (BusinessException e) {
+            return roleSessionService.buildDefaultState(userId);
+        }
+    }
+
+    private SysUserEntity findUserByUsername(String username) {
+        return sysUserMapper.selectOne(new LambdaQueryWrapper<SysUserEntity>()
+                .eq(SysUserEntity::getUsername, username)
+                .eq(SysUserEntity::getDelFlag, (byte) 0));
+    }
+
+    private String requireToken(HttpServletRequest request) {
+        String token = resolveToken(request);
+        if (token == null) {
+            throw new BusinessException("未登录");
+        }
+        return token;
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    private void recordLoginLog(String username, String ipAddress, String userAgent, byte status, String message) {
+        try {
+            SysLoginLogEntity loginLog = new SysLoginLogEntity();
+            loginLog.setUsername(username);
+            loginLog.setIpAddress(ipAddress);
+            loginLog.setLocation("本地");
+            loginLog.setBrowser(parseBrowser(userAgent));
+            loginLog.setOs(parseOs(userAgent));
+            loginLog.setLoginTime(LocalDateTime.now());
+            loginLog.setStatus(status);
+            loginLog.setMessage(message);
+            loginLogService.save(loginLog);
+        } catch (Exception e) {
+            log.error("记录登录日志失败: {}", e.getMessage());
+        }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
+    }
+
+    private String parseBrowser(String userAgent) {
+        if (userAgent == null) {
+            return "Unknown";
+        }
+        if (userAgent.contains("Edge")) {
+            return "Edge";
+        }
+        if (userAgent.contains("Chrome")) {
+            return "Chrome";
+        }
+        if (userAgent.contains("Firefox")) {
+            return "Firefox";
+        }
+        if (userAgent.contains("Safari")) {
+            return "Safari";
+        }
+        if (userAgent.contains("MSIE") || userAgent.contains("Trident")) {
+            return "IE";
+        }
+        return "Unknown";
+    }
+
+    private String parseOs(String userAgent) {
+        if (userAgent == null) {
+            return "Unknown";
+        }
+        if (userAgent.contains("Windows")) {
+            return "Windows";
+        }
+        if (userAgent.contains("Mac")) {
+            return "MacOS";
+        }
+        if (userAgent.contains("Linux")) {
+            return "Linux";
+        }
+        if (userAgent.contains("Android")) {
+            return "Android";
+        }
+        if (userAgent.contains("iPhone") || userAgent.contains("iPad")) {
+            return "iOS";
+        }
+        return "Unknown";
     }
 }

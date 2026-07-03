@@ -41,6 +41,7 @@ public class SysSodConstraintController {
      * 获取所有 SoD 约束列表
      */
     @Operation(summary = "获取所有约束", description = "获取所有SoD约束列表")
+    @PreAuthorize("hasAuthority('system:sod:query')")
     @GetMapping("/list")
     public Result<List<SysSodConstraintEntity>> list() {
         List<SysSodConstraintEntity> constraints = sodConstraintService.list(
@@ -54,6 +55,7 @@ public class SysSodConstraintController {
      * 分页查询 SoD 约束
      */
     @Operation(summary = "分页查询约束", description = "根据条件分页查询SoD约束")
+    @PreAuthorize("hasAuthority('system:sod:query')")
     @GetMapping("/page")
     public Result<PageVO<SysSodConstraintEntity>> page(
             @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
@@ -81,6 +83,7 @@ public class SysSodConstraintController {
      * 获取约束详情
      */
     @Operation(summary = "获取约束详情", description = "根据ID获取SoD约束详情")
+    @PreAuthorize("hasAuthority('system:sod:query')")
     @GetMapping("/{id}")
     public Result<SysSodConstraintEntity> getById(@PathVariable Long id) {
         SysSodConstraintEntity constraint = sodConstraintService.getById(id);
@@ -91,7 +94,7 @@ public class SysSodConstraintController {
      * 创建 SoD 约束
      */
     @Operation(summary = "创建约束", description = "新增SoD约束")
-    @PreAuthorize("hasAuthority('role:edit')")
+    @PreAuthorize("hasAuthority('sod:add')")
     @PostMapping
     public Result<Void> create(@RequestBody SysSodConstraintEntity constraint) {
         constraint.setCreateTime(LocalDateTime.now());
@@ -104,7 +107,7 @@ public class SysSodConstraintController {
      * 更新 SoD 约束
      */
     @Operation(summary = "更新约束", description = "更新SoD约束信息")
-    @PreAuthorize("hasAuthority('role:edit')")
+    @PreAuthorize("hasAuthority('sod:edit')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody SysSodConstraintEntity constraint) {
         constraint.setId(id);
@@ -117,7 +120,7 @@ public class SysSodConstraintController {
      * 删除 SoD 约束
      */
     @Operation(summary = "删除约束", description = "删除SoD约束")
-    @PreAuthorize("hasAuthority('role:delete')")
+    @PreAuthorize("hasAuthority('sod:delete')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         sodConstraintService.removeById(id);

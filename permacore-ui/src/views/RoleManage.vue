@@ -195,7 +195,7 @@ const getRoleList = async () => {
   loading.value = true;
   try {
     const res: any = await request.get('/api/role/page', {
-      params: { pageNo: pageNo.value, pageSize: pageSize.value, keyword: searchKeyword.value },
+      params: { pageNo: pageNo.value, pageSize: pageSize.value, roleName: searchKeyword.value || undefined },
     });
     roleList.value = res?.records ?? [];
     total.value = res?.total ?? 0;

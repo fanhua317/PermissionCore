@@ -167,8 +167,8 @@ CREATE TABLE IF NOT EXISTS sys_oper_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='操作日志表';
 
 -- ============================================================
--- 插入默认管理员账户（密码为 BCrypt 加密的 'admin123'）
+-- 插入默认管理员账户：admin / Admin@123456
 -- ============================================================
 INSERT INTO sys_user (username, password, nickname, status, create_time)
-SELECT 'admin', '$2a$10$VQEDMSRBpfJEi6VSJk6GaOORKHpXD9FHvPLO7fWSYTq3FqXVd0J9a', '超级管理员', 1, NOW()
+SELECT 'admin', '$2a$10$lNXvCutfulLhh7VjGB1cou98Omd/UpEVMtRaX5cMZzNpaYBcg8q4W', '超级管理员', 1, NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'admin');

@@ -46,8 +46,8 @@ mybatis-plus:
 # JWT配置
 jwt:
   secret: YourVeryLongAndSecureJwtSecretKeyForPermaCoreIAMSystem2024
-  expiration: 86400000
-  refresh-expiration: 604800000
+  expiration: 86400
+  refresh-expiration: 604800
 
 # 日志级别
 logging:

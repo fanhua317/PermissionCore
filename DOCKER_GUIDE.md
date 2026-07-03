@@ -28,7 +28,9 @@ docker compose up -d --build
 | MySQL | localhost:3306（用户: root，密码: 123456） |
 | Redis | localhost:6379 |
 
-**默认管理员账号**：`admin` / `admin123`
+**默认管理员账号**：`admin` / `Admin@123456`
+
+Docker profile 默认连接 Compose 中的 Redis 服务；本地 `dev` profile 不依赖 Redis。
 
 ## 常用命令
 

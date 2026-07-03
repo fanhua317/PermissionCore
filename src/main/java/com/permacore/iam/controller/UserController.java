@@ -57,11 +57,19 @@ public class UserController {
             LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
 
             // 条件查询
-            if (StringUtils.hasText(query.getUsername())) {
-                wrapper.like(SysUserEntity::getUsername, query.getUsername());
-            }
-            if (StringUtils.hasText(query.getNickname())) {
-                wrapper.like(SysUserEntity::getNickname, query.getNickname());
+            String username = query.getUsername();
+            String nickname = query.getNickname();
+            if (StringUtils.hasText(username) && StringUtils.hasText(nickname) && username.equals(nickname)) {
+                wrapper.and(w -> w.like(SysUserEntity::getUsername, username)
+                        .or()
+                        .like(SysUserEntity::getNickname, nickname));
+            } else {
+                if (StringUtils.hasText(username)) {
+                    wrapper.like(SysUserEntity::getUsername, username);
+                }
+                if (StringUtils.hasText(nickname)) {
+                    wrapper.like(SysUserEntity::getNickname, nickname);
+                }
             }
             if (query.getStatus() != null) {
                 wrapper.eq(SysUserEntity::getStatus, query.getStatus());

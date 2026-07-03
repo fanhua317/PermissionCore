@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.permacore.iam.security.handler.SecurityAccessDeniedHandler;
 import com.permacore.iam.security.handler.SecurityAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
+import com.permacore.iam.service.RoleSessionService;
 import com.permacore.iam.service.UserService;
 import com.permacore.iam.service.SysLoginLogService;
 import com.permacore.iam.security.filter.JwtAuthenticationFilter;
@@ -46,6 +47,7 @@ public class SecurityConfig {
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
     private final ObjectMapper objectMapper;
+    private final RoleSessionService roleSessionService;
 
     @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
@@ -89,7 +91,7 @@ public class SecurityConfig {
     public JwtAuthenticationFilter jwtAuthenticationFilter(AuthenticationManager authenticationManager,
             SysLoginLogService loginLogService) {
         return new JwtAuthenticationFilter(authenticationManager, jwtUtil, redisCacheUtil, objectMapper,
-                loginLogService);
+                loginLogService, roleSessionService);
     }
 
     /**

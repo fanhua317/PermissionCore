@@ -4,7 +4,7 @@ import router from '../router';
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: 'http://localhost:54321',
   timeout: 10000,
 });
 
@@ -45,7 +45,7 @@ service.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const res = await axios.post('http://localhost:8080/api/auth/refresh', {
+        const res = await axios.post('http://localhost:54321/api/auth/refresh', {
           refreshToken,
         });
 

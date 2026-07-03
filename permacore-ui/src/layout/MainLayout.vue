@@ -1,11 +1,11 @@
 <template>
   <el-container class="main-layout">
-    <!-- 侧边栏 -->
     <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar">
       <div class="logo-container">
         <img src="@/assets/logo.svg" alt="logo" class="logo" />
         <span v-show="!isCollapse" class="logo-text">PermaCore IAM</span>
       </div>
+
       <el-menu
         :default-active="currentRoute"
         :collapse="isCollapse"
@@ -20,54 +20,32 @@
           <el-icon><Odometer /></el-icon>
           <template #title>控制台</template>
         </el-menu-item>
-        
-        <el-sub-menu index="system">
+
+        <el-sub-menu v-if="systemMenus.length" index="system">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
           </template>
-          <el-menu-item index="/user">
-            <el-icon><User /></el-icon>
-            <template #title>用户管理</template>
-          </el-menu-item>
-          <el-menu-item index="/role">
-            <el-icon><UserFilled /></el-icon>
-            <template #title>角色管理</template>
-          </el-menu-item>
-          <el-menu-item index="/permission">
-            <el-icon><Key /></el-icon>
-            <template #title>权限管理</template>
-          </el-menu-item>
-          <el-menu-item index="/sod">
-            <el-icon><Lock /></el-icon>
-            <template #title>职责分离</template>
-          </el-menu-item>
-          <el-menu-item index="/dept">
-            <el-icon><OfficeBuilding /></el-icon>
-            <template #title>部门管理</template>
+          <el-menu-item v-for="item in systemMenus" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
           </el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="audit">
+        <el-sub-menu v-if="auditMenus.length" index="audit">
           <template #title>
             <el-icon><Document /></el-icon>
             <span>日志审计</span>
           </template>
-          <el-menu-item index="/login-log">
-            <el-icon><Tickets /></el-icon>
-            <template #title>登录日志</template>
-          </el-menu-item>
-          <el-menu-item index="/oper-log">
-            <el-icon><List /></el-icon>
-            <template #title>操作日志</template>
+          <el-menu-item v-for="item in auditMenus" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
 
-    <!-- 主内容区 -->
     <el-container>
-      <!-- 顶部导航 -->
       <el-header class="header">
         <div class="header-left">
           <el-icon class="collapse-btn" @click="toggleCollapse">
@@ -79,7 +57,12 @@
             <el-breadcrumb-item v-if="breadcrumbTitle">{{ breadcrumbTitle }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
+
         <div class="header-right">
+          <el-button v-if="availableRoles.length" :icon="Key" class="role-switch" @click="openRoleDialog">
+            {{ activeRoleLabel }}
+          </el-button>
+
           <el-dropdown @command="handleCommand">
             <div class="user-info">
               <el-avatar :size="32" class="avatar" :src="userAvatar">
@@ -105,7 +88,6 @@
         </div>
       </el-header>
 
-      <!-- 内容区域 -->
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
@@ -114,20 +96,31 @@
         </router-view>
       </el-main>
 
-      <!-- 底部 -->
       <el-footer class="footer">
-        <span>PermaCore IAM &copy; 2024 - 基于RBAC3的权限管理系统</span>
+        <span>PermaCore IAM &copy; 2024 - 基于 RBAC3 的权限管理系统</span>
       </el-footer>
     </el-container>
 
-    <!-- 修改密码对话框 -->
+    <el-dialog v-model="roleDialogVisible" title="当前激活角色" width="480px" destroy-on-close>
+      <el-checkbox-group v-model="roleForm.activeRoleIds" class="role-list">
+        <el-checkbox v-for="role in availableRoles" :key="role.id" :label="role.id" border>
+          <span class="role-name">{{ role.roleName }}</span>
+          <span class="role-key">{{ role.roleKey }}</span>
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="roleDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="roleSaving" @click="saveRoleSelection">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="passwordDialogVisible" title="修改密码" width="400px" destroy-on-close>
       <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
         <el-form-item label="旧密码" prop="oldPassword">
           <el-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入旧密码" show-password />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码（至少6位）" show-password />
+          <el-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" show-password />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
           <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password />
@@ -139,10 +132,8 @@
       </template>
     </el-dialog>
 
-    <!-- 个人中心对话框 -->
     <el-dialog v-model="profileDialogVisible" title="个人中心" width="500px" destroy-on-close>
       <div class="profile-container">
-        <!-- 头像上传 -->
         <div class="avatar-section">
           <el-upload
             class="avatar-uploader"
@@ -157,8 +148,7 @@
             <div class="avatar-upload-text">点击更换头像</div>
           </el-upload>
         </div>
-        <!-- 个人信息表单 -->
-        <el-form :model="profileForm" label-width="80px" style="margin-top: 20px">
+        <el-form :model="profileForm" label-width="80px" class="profile-form">
           <el-form-item label="用户名">
             <el-input :value="userStore.userInfo?.username" disabled />
           </el-form-item>
@@ -182,9 +172,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useUserStore } from '@/store/user';
+import { useUserStore, type SessionRole } from '@/store/user';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules, UploadRawFile } from 'element-plus';
 import request from '@/utils/request';
@@ -210,11 +200,41 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const isCollapse = ref(false);
-
-// 用户头像
 const userAvatar = ref('');
 
-// 修改密码
+const allSystemMenus = [
+  { path: '/user', title: '用户管理', permission: 'system:user', icon: User },
+  { path: '/role', title: '角色管理', permission: 'system:role', icon: UserFilled },
+  { path: '/permission', title: '权限管理', permission: 'system:permission', icon: Key },
+  { path: '/sod', title: '职责分离', permission: 'system:sod', icon: Lock },
+  { path: '/dept', title: '部门管理', permission: 'system:dept', icon: OfficeBuilding },
+];
+
+const allAuditMenus = [
+  { path: '/login-log', title: '登录日志', permission: 'system:log', icon: Tickets },
+  { path: '/oper-log', title: '操作日志', permission: 'system:log', icon: List },
+];
+
+const systemMenus = computed(() => allSystemMenus.filter((item) => userStore.hasPermission(item.permission)));
+const auditMenus = computed(() => allAuditMenus.filter((item) => userStore.hasPermission(item.permission)));
+
+const currentRoute = computed(() => route.path);
+const breadcrumbTitle = computed(() => (route.meta.title as string) || '');
+
+const availableRoles = computed<SessionRole[]>(() => userStore.userInfo?.roles ?? []);
+const activeRoleLabel = computed(() => {
+  const roles = availableRoles.value.filter((role) => userStore.userInfo?.activeRoleIds.includes(role.id));
+  if (!roles.length) return '未激活角色';
+  const firstRole = roles[0];
+  if (!firstRole) return '未激活角色';
+  if (roles.length === 1) return firstRole.roleName;
+  return `${firstRole.roleName} 等 ${roles.length} 个角色`;
+});
+
+const roleDialogVisible = ref(false);
+const roleSaving = ref(false);
+const roleForm = ref({ activeRoleIds: [] as number[] });
+
 const passwordDialogVisible = ref(false);
 const passwordLoading = ref(false);
 const passwordFormRef = ref<FormInstance>();
@@ -222,6 +242,14 @@ const passwordForm = ref({
   oldPassword: '',
   newPassword: '',
   confirmPassword: '',
+});
+
+const profileDialogVisible = ref(false);
+const profileLoading = ref(false);
+const profileForm = ref({
+  nickname: '',
+  email: '',
+  phone: '',
 });
 
 const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
@@ -244,33 +272,36 @@ const passwordRules: FormRules = {
   ],
 };
 
-// 个人中心
-const profileDialogVisible = ref(false);
-const profileLoading = ref(false);
-const profileForm = ref({
-  nickname: '',
-  email: '',
-  phone: '',
-});
-
-const currentRoute = computed(() => route.path);
-
-const breadcrumbTitle = computed(() => {
-  const titles: Record<string, string> = {
-    '/dashboard': '控制台',
-    '/user': '用户管理',
-    '/role': '角色管理',
-    '/permission': '权限管理',
-    '/sod': '职责分离',
-    '/dept': '部门管理',
-    '/login-log': '登录日志',
-    '/oper-log': '操作日志',
-  };
-  return titles[route.path] || '';
-});
-
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value;
+};
+
+const openRoleDialog = async () => {
+  try {
+    await userStore.loadSessionRoles();
+    roleForm.value.activeRoleIds = [...(userStore.userInfo?.activeRoleIds ?? [])];
+    roleDialogVisible.value = true;
+  } catch (error: any) {
+    ElMessage.error(error?.message || '获取会话角色失败');
+  }
+};
+
+const saveRoleSelection = async () => {
+  roleSaving.value = true;
+  try {
+    await userStore.switchActiveRoles(roleForm.value.activeRoleIds);
+    roleDialogVisible.value = false;
+    ElMessage.success('角色切换成功');
+
+    const requiredPermission = route.meta.permission as string | undefined;
+    if (requiredPermission && !userStore.hasPermission(requiredPermission)) {
+      router.push('/dashboard');
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || '角色切换失败');
+  } finally {
+    roleSaving.value = false;
+  }
 };
 
 const handleCommand = async (command: string) => {
@@ -284,7 +315,7 @@ const handleCommand = async (command: string) => {
     case 'logout':
       try {
         await ElMessageBox.confirm('确定要退出登录吗？', '提示', { type: 'warning' });
-        userStore.clearToken();
+        await userStore.logout();
         router.push('/login');
         ElMessage.success('退出成功');
       } catch {
@@ -311,11 +342,10 @@ const handleChangePassword = async () => {
       });
       ElMessage.success('密码修改成功，请重新登录');
       passwordDialogVisible.value = false;
-      // 清除token并跳转登录页
-      userStore.clearToken();
+      await userStore.logout();
       router.push('/login');
     } catch (error: any) {
-      ElMessage.error(error?.response?.data?.message || '修改密码失败');
+      ElMessage.error(error?.message || '修改密码失败');
     } finally {
       passwordLoading.value = false;
     }
@@ -323,7 +353,6 @@ const handleChangePassword = async () => {
 };
 
 const openProfileDialog = async () => {
-  // 从API加载当前用户完整信息
   profileDialogVisible.value = true;
   try {
     await userStore.fetchUserInfo();
@@ -332,7 +361,7 @@ const openProfileDialog = async () => {
       email: userStore.userInfo?.email || '',
       phone: userStore.userInfo?.phone || '',
     };
-  } catch (error: any) {
+  } catch {
     ElMessage.error('获取用户信息失败');
   }
 };
@@ -343,10 +372,9 @@ const handleUpdateProfile = async () => {
     await request.put('/api/auth/profile', profileForm.value);
     ElMessage.success('个人信息更新成功');
     profileDialogVisible.value = false;
-    // 刷新用户信息
     await userStore.fetchUserInfo();
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '更新失败');
+    ElMessage.error(error?.message || '更新失败');
   } finally {
     profileLoading.value = false;
   }
@@ -373,17 +401,15 @@ const uploadAvatar = async (options: any) => {
     });
     if (res?.avatarUrl) {
       userAvatar.value = res.avatarUrl;
-      // 保存到localStorage
       localStorage.setItem('userAvatar', res.avatarUrl);
       ElMessage.success('头像上传成功');
     }
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '头像上传失败');
+    ElMessage.error(error?.message || '头像上传失败');
   }
 };
 
 onMounted(() => {
-  // 从localStorage加载头像
   const savedAvatar = localStorage.getItem('userAvatar');
   if (savedAvatar) {
     userAvatar.value = savedAvatar;
@@ -398,8 +424,8 @@ onMounted(() => {
 
 .sidebar {
   background-color: #001529;
-  transition: width 0.3s;
   overflow: hidden;
+  transition: width 0.3s;
 }
 
 .logo-container {
@@ -425,8 +451,8 @@ onMounted(() => {
 }
 
 .sidebar-menu {
-  border-right: none;
   height: calc(100vh - 60px);
+  border-right: none;
 }
 
 .sidebar-menu:not(.el-menu--collapse) {
@@ -442,35 +468,33 @@ onMounted(() => {
   padding: 0 20px;
 }
 
-.header-left {
+.header-left,
+.header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .collapse-btn {
   font-size: 20px;
   cursor: pointer;
   color: #666;
-  transition: color 0.3s;
 }
 
 .collapse-btn:hover {
   color: #409eff;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
+.role-switch {
+  max-width: 220px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 4px;
-  transition: background-color 0.3s;
 }
 
 .user-info:hover {
@@ -485,6 +509,10 @@ onMounted(() => {
   margin: 0 8px;
   font-size: 14px;
   color: #333;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .arrow {
@@ -508,7 +536,28 @@ onMounted(() => {
   border-top: 1px solid #f0f0f0;
 }
 
-/* 页面过渡动画 */
+.role-list {
+  display: grid;
+  gap: 10px;
+}
+
+.role-list :deep(.el-checkbox) {
+  width: 100%;
+  height: auto;
+  padding: 10px 12px;
+  margin-right: 0;
+}
+
+.role-name {
+  font-weight: 600;
+}
+
+.role-key {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+}
+
 .fade-transform-enter-active,
 .fade-transform-leave-active {
   transition: all 0.2s ease;
@@ -524,7 +573,6 @@ onMounted(() => {
   transform: translateX(10px);
 }
 
-/* 个人中心样式 */
 .profile-container {
   text-align: center;
 }
@@ -552,5 +600,9 @@ onMounted(() => {
   margin-top: 8px;
   font-size: 12px;
   color: #909399;
+}
+
+.profile-form {
+  margin-top: 20px;
 }
 </style>

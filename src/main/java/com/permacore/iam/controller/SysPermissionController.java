@@ -211,8 +211,8 @@ public class SysPermissionController {
         if (type == null) return "MENU";
         switch (type) {
             case 1: return "MENU";
-            case 2: return "API";
-            case 3: return "BUTTON";
+            case 2: return "BUTTON";
+            case 3: return "API";
             default: return "MENU";
         }
     }
@@ -224,8 +224,8 @@ public class SysPermissionController {
         if (type == null) return (byte) 1;
         switch (type.toUpperCase()) {
             case "MENU": return (byte) 1;
-            case "API": return (byte) 2;
-            case "BUTTON": return (byte) 3;
+            case "BUTTON": return (byte) 2;
+            case "API": return (byte) 3;
             default: return (byte) 1;
         }
     }

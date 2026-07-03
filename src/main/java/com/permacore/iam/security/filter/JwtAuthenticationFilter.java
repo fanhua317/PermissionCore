@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.permacore.iam.domain.entity.SysLoginLogEntity;
 import com.permacore.iam.domain.vo.LoginVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.SessionRoleStateVO;
 import com.permacore.iam.security.SecurityUser;
+import com.permacore.iam.service.RoleSessionService;
 import com.permacore.iam.service.SysLoginLogService;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
@@ -26,7 +28,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 
 /**
@@ -42,6 +43,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     private final RedisCacheUtil redisCacheUtil;
     private final ObjectMapper objectMapper;
     private final SysLoginLogService loginLogService;
+    private final RoleSessionService roleSessionService;
 
     private static final String ATTR_LOGIN_USERNAME = "LOGIN_USERNAME";
 
@@ -49,12 +51,14 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
             JwtUtil jwtUtil,
             RedisCacheUtil redisCacheUtil,
             ObjectMapper objectMapper,
-            SysLoginLogService loginLogService) {
+            SysLoginLogService loginLogService,
+            RoleSessionService roleSessionService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.redisCacheUtil = redisCacheUtil;
         this.objectMapper = objectMapper;
         this.loginLogService = loginLogService;
+        this.roleSessionService = roleSessionService;
         setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher("/api/auth/login", "POST"));
         super.setAuthenticationManager(authenticationManager);
     }
@@ -97,17 +101,13 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         log.info("用户登录成功: userId={}", userId);
 
         // 1. 构建JWT载荷
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", userId);
-        claims.put("username", username);
-        claims.put("nickname", securityUser.getNickname());
-        claims.put("permissions", securityUser.getAuthorities().stream()
-                .map(Object::toString)
-                .collect(Collectors.toList()));
+        SessionRoleStateVO sessionState = roleSessionService.buildDefaultState(userId);
+        Map<String, Object> claims = roleSessionService.buildJwtClaims(
+                userId, username, securityUser.getNickname(), sessionState);
 
         // 2. 生成Token
         String accessToken = jwtUtil.generateAccessToken(claims);
-        String refreshToken = jwtUtil.generateRefreshToken(userId);
+        String refreshToken = jwtUtil.generateRefreshToken(claims);
 
         // 3. 存储JWT版本号（用于强制登出）
         String jwtVersion = jwtUtil.getJtiFromToken(accessToken);
@@ -120,6 +120,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         tokenMap.put("refreshToken", refreshToken);
         tokenMap.put("tokenType", "Bearer");
         tokenMap.put("expiresIn", jwtUtil.getTokenRemainTime(accessToken));
+        roleSessionService.appendSessionState(tokenMap, sessionState);
 
         // 5. 记录登录成功日志
         recordLoginLog(username, request, (byte) 1, "登录成功");

@@ -101,6 +101,7 @@ CREATE TABLE sys_sod_constraint (
 - 升级运行环境到 **Java 21**（已在 pom 配置与启动验证）；
 - 启用 Redis 分布式缓存 + L1 本地缓存广播失效，避免多节点本地脏读；
 - 角色继承查询改为数据库递归 CTE，一次性计算全量祖先角色，降低鉴权查询延迟。
+- DSD 已接入登录后的会话角色切换：系统按 `sort_order,id` 默认激活不冲突角色，用户可在顶栏切换激活角色，菜单和路由会随当前权限刷新。
 
 - **RBAC3 权限模型**：支持用户–角色–权限三层关系，扩展角色继承和职责分离（SoD）约束；
 - **JWT 无状态认证**：基于 Spring Security 6 + JWT，实现后端无 Session 的分布式认证；
@@ -158,7 +159,8 @@ CREATE TABLE sys_sod_constraint (
 
 5. **身份认证与授权**
    - 基于用户名 + 密码的登录；
-   - 签发访问 Token 与刷新 Token；
+   - 签发访问 Token 与刷新 Token，Token 中携带当前 `activeRoleIds`、`effectiveRoleIds` 与权限集合；
+   - 支持 `GET /api/auth/session-roles` 查询可激活角色，支持 `PUT /api/auth/session-roles` 切换当前激活角色并执行 DSD 校验；
    - 通过 `@PreAuthorize` 等注解进行方法级访问控制；
 
 6. **审计日志**
@@ -185,8 +187,8 @@ CREATE TABLE sys_sod_constraint (
 
 2. 执行 `src/main/resources/db/init-permissions.sql`：
    - 该脚本中包含：
-     - 用户、角色、权限及其关联表结构；
-     - 测试数据（如超级管理员账户及其角色/权限绑定）；
+     - 默认部门、角色、权限和 RBAC3 SoD 约束；
+     - 超级管理员账户及其角色/权限绑定；
 
 > 实际使用时，可根据需要调整初始数据，例如修改默认管理员密码或增加业务角色。
 
@@ -199,11 +201,12 @@ CREATE TABLE sys_sod_constraint (
      - `spring.datasource.password`
 
    - 是否启用 Redis：
-     - 在 `application.yml` 中：
+     - `application-dev.yml` 默认关闭 Redis，适合本地无 Redis 启动；
+     - `application.yml` 与 `application-docker.yml` 可开启 Redis/Redisson：
        ```yaml
        app:
          redis:
-           enabled: false  # 若需要启用 Redis + Redisson，请改为 true 并确保 redis 服务正常
+           enabled: true
        ```
 
 2. **构建后端**
@@ -247,7 +250,7 @@ CREATE TABLE sys_sod_constraint (
    ```
    默认开发地址通常为：`http://localhost:5173`。
 
-> 注意：前端请求的后端 API 基础地址在 `vite.config.ts` 中通过代理配置，开发环境代理到 `http://localhost:8081`。
+> 注意：前端请求的后端 API 基础地址在 `vite.config.ts` 中通过代理配置，当前代理到 `http://localhost:54321`。
 
 ## 十、默认账号信息
 

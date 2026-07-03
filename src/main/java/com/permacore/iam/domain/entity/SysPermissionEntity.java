@@ -38,7 +38,7 @@ public class SysPermissionEntity implements Serializable {
     @TableField("perm_name")
     private String permName;
 
-    @Schema(description = "资源类型：1-菜单 2-API 3-数据")
+    @Schema(description = "资源类型：1-菜单 2-按钮 3-API")
     @TableField("resource_type")
     private Byte resourceType;
 
