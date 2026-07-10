@@ -1,0 +1,8 @@
+raw/
+results/*/raw/
+results/**/*.log
+results/**/*.prom
+results/**/*.jfr
+results/**/*.hprof
+*.tmp
+*.pid

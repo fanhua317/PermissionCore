@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-10T19:11:02.092Z",
+  "runId": "spike",
+  "scenario": "spike",
+  "scale": "10k",
+  "targetRps": 1,
+  "metrics": {
+    "requestCount": 52801,
+    "requestRate": 250.82989100624255,
+    "iterationCount": 52799,
+    "iterationRate": 250.82039005394975,
+    "droppedIterations": null,
+    "errorRate": 0,
+    "checkRate": 1,
+    "p50Ms": 8.36477,
+    "p90Ms": 14.827076,
+    "p95Ms": 18.949014,
+    "p99Ms": 95.653334,
+    "avgMs": 12.442902498929557,
+    "maxMs": 2552.190909,
+    "receivedBytes": 534503720,
+    "sentBytes": 53579841
+  }
+}

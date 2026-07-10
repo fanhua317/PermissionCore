@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-10T15:44:58.868Z",
+  "runId": "auth-20-r3",
+  "scenario": "auth-flow",
+  "scale": "100k",
+  "targetRps": 1,
+  "metrics": {
+    "requestCount": 86472,
+    "requestRate": 665.2173062235167,
+    "iterationCount": 21616,
+    "iterationRate": 166.28894082856343,
+    "droppedIterations": null,
+    "errorRate": 0.00024285317790729948,
+    "checkRate": 0.9998942659080245,
+    "p50Ms": 11.223030999999999,
+    "p90Ms": 58.425949,
+    "p95Ms": 64.56825620000001,
+    "p99Ms": 71.60371581999996,
+    "avgMs": 19.68491088127961,
+    "maxMs": 544.876141,
+    "receivedBytes": 109818845,
+    "sentBytes": 84944365
+  }
+}

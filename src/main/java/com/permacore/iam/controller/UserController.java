@@ -17,6 +17,7 @@ import com.permacore.iam.service.AuthorizationStateService;
 import com.permacore.iam.security.handler.BusinessException;
 import com.permacore.iam.mapper.SysRoleMapper;
 import com.permacore.iam.mapper.SysDeptMapper;
+import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.domain.entity.SysDeptEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -53,6 +54,7 @@ public class UserController {
     private final AuthorizationStateService authorizationStateService;
     private final SysRoleMapper roleMapper;
     private final SysDeptMapper deptMapper;
+    private final SysUserMapper userMapper;
 
     /**
      * 分页查询用户
@@ -66,39 +68,25 @@ public class UserController {
         try {
             int pageNo = query.getPageNo() == null ? 1 : Math.max(1, query.getPageNo());
             int pageSize = query.getPageSize() == null ? 10 : Math.min(100, Math.max(1, query.getPageSize()));
-            Page<SysUserEntity> page = new Page<>(pageNo, pageSize);
-            LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
+            String username = StringUtils.hasText(query.getUsername()) ? query.getUsername() : null;
+            String nickname = StringUtils.hasText(query.getNickname()) ? query.getNickname() : null;
+            boolean sharedKeyword = username != null && nickname != null && username.equals(nickname);
 
-            // 条件查询
-            String username = query.getUsername();
-            String nickname = query.getNickname();
-            if (StringUtils.hasText(username) && StringUtils.hasText(nickname) && username.equals(nickname)) {
-                wrapper.and(w -> w.like(SysUserEntity::getUsername, username)
-                        .or()
-                        .like(SysUserEntity::getNickname, nickname));
-            } else {
-                if (StringUtils.hasText(username)) {
-                    wrapper.like(SysUserEntity::getUsername, username);
-                }
-                if (StringUtils.hasText(nickname)) {
-                    wrapper.like(SysUserEntity::getNickname, nickname);
-                }
-            }
-            if (query.getStatus() != null) {
-                wrapper.eq(SysUserEntity::getStatus, query.getStatus());
-            }
-            if (query.getDeptId() != null) {
-                wrapper.eq(SysUserEntity::getDeptId, query.getDeptId());
-            }
+            long total = userMapper.countUserPage(
+                    username, nickname, sharedKeyword, query.getStatus(), query.getDeptId());
+            long offset = ((long) pageNo - 1L) * pageSize;
+            List<SysUserEntity> records = offset < total
+                    ? userMapper.selectUserPage(
+                            offset, pageSize, username, nickname, sharedKeyword,
+                            query.getStatus(), query.getDeptId())
+                    : List.of();
 
-            wrapper.eq(SysUserEntity::getDelFlag, 0)
-                    .orderByDesc(SysUserEntity::getCreateTime);
-
-            Page<SysUserEntity> resultPage = userService.page(page, wrapper);
+            Page<SysUserEntity> resultPage = new Page<>(pageNo, pageSize);
+            resultPage.setTotal(total);
+            resultPage.setRecords(records);
             log.info("User list query success, total: {}", resultPage.getTotal());
 
             // 填充部门名称
-            List<SysUserEntity> records = resultPage.getRecords();
             if (!records.isEmpty()) {
                 List<Long> deptIds = records.stream()
                         .map(SysUserEntity::getDeptId)

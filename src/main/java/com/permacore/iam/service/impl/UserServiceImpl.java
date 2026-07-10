@@ -64,9 +64,11 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
         if (roleIds != null && roleIds.stream().anyMatch(java.util.Objects::isNull)) {
             throw new BusinessException("角色ID不能为空");
         }
-        roleMapper.lockAllRoleIds();
-        SysUserEntity targetUser = userMapper.selectById(userId);
-        if (targetUser == null || Byte.valueOf((byte) 1).equals(targetUser.getDelFlag())) {
+        // Lock order is always role graph -> target user. A shared graph lock keeps
+        // role validation consistent while allowing assignments for other users.
+        roleMapper.lockAllRoleIdsShared();
+        SysUserEntity targetUser = userMapper.selectByIdForUpdate(userId);
+        if (targetUser == null) {
             throw new BusinessException("用户不存在: " + userId);
         }
 
@@ -97,28 +99,42 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
     @Override
     @Transactional
     public void deleteUser(Long userId) {
-        roleMapper.lockAllRoleIds();
-        if (userId == null || userMapper.selectById(userId) == null) {
-            throw new BusinessException("用户不存在: " + userId);
+        if (userId == null) {
+            throw new BusinessException("用户不存在: null");
         }
-        userRoleMapper.deleteByUserId(userId);
-        if (!super.removeById(userId)) {
-            throw new BusinessException("删除用户失败: " + userId);
-        }
-        authorizationStateService.invalidateUsers(List.of(userId));
+        deleteUsersInLockOrder(List.of(userId));
     }
 
     @Override
     @Transactional
     public void deleteUsers(List<Long> userIds) {
         List<Long> normalizedIds = userIds == null ? List.of()
-                : userIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+                : userIds.stream().filter(java.util.Objects::nonNull).distinct().sorted().toList();
         if (normalizedIds.isEmpty()) {
             throw new BusinessException("请选择要删除的用户");
         }
-        for (Long userId : normalizedIds) {
-            deleteUser(userId);
+        deleteUsersInLockOrder(normalizedIds);
+    }
+
+    /**
+     * Acquire every lock before mutating relationships. All callers use the same
+     * graph -> ascending user order, so overlapping batches cannot lock users in
+     * opposite orders.
+     */
+    private void deleteUsersInLockOrder(List<Long> userIds) {
+        roleMapper.lockAllRoleIdsShared();
+        for (Long userId : userIds) {
+            if (userMapper.selectByIdForUpdate(userId) == null) {
+                throw new BusinessException("用户不存在: " + userId);
+            }
         }
+        for (Long userId : userIds) {
+            userRoleMapper.deleteByUserId(userId);
+            if (!super.removeById(userId)) {
+                throw new BusinessException("删除用户失败: " + userId);
+            }
+        }
+        authorizationStateService.invalidateUsers(userIds);
     }
 
     private void validateAssignableRoles(List<Long> roleIds) {

@@ -57,7 +57,7 @@ class UserServiceImplSsdTest {
         SysUserEntity user = new SysUserEntity();
         user.setId(9L);
         user.setDelFlag((byte) 0);
-        when(userMapper.selectById(9L)).thenReturn(user);
+        when(userMapper.selectByIdForUpdate(9L)).thenReturn(user);
         when(roleMapper.selectBatchIds(any())).thenAnswer(invocation -> {
             @SuppressWarnings("unchecked")
             List<Long> ids = (List<Long>) invocation.getArgument(0);
@@ -75,6 +75,9 @@ class UserServiceImplSsdTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", 400)
                 .hasMessageContaining("职责分离");
+        verify(roleMapper).lockAllRoleIdsShared();
+        verify(userMapper).selectByIdForUpdate(9L);
+        verify(roleMapper, never()).lockAllRoleIds();
         verify(userRoleMapper, never()).deleteByUserId(9L);
     }
 
@@ -88,6 +91,9 @@ class UserServiceImplSsdTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", 400)
                 .hasMessageContaining("职责分离");
+        verify(roleMapper).lockAllRoleIdsShared();
+        verify(userMapper).selectByIdForUpdate(9L);
+        verify(roleMapper, never()).lockAllRoleIds();
         verify(userRoleMapper, never()).deleteByUserId(9L);
     }
 

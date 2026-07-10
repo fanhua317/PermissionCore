@@ -26,4 +26,18 @@
         id, title, business_type, method, request_method, operator_id, operator_name, oper_ip, oper_location, oper_param, json_result, status, error_msg, oper_time, cost_time
     </sql>
 
+    <!-- 列表不读取大字段；完整内容由按 ID 查询的详情接口返回。 -->
+    <sql id="List_Column_List">
+        id, title, business_type, method, request_method, operator_id, operator_name,
+        oper_ip, oper_location, status, oper_time, cost_time
+    </sql>
+
+    <!-- 固定条数查询不走分页插件，避免 recent 接口执行无意义的 COUNT。 -->
+    <select id="selectRecent" resultMap="BaseResultMap">
+        SELECT <include refid="List_Column_List" />
+        FROM sys_oper_log
+        ORDER BY oper_time DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

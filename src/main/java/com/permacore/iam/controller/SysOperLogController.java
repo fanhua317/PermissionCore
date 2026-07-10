@@ -8,11 +8,14 @@ import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.SysOperLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -25,6 +28,7 @@ import java.time.LocalTime;
 @RestController
 @RequestMapping("/api/oper-log")
 @RequiredArgsConstructor
+@Validated
 public class SysOperLogController {
 
     private static final Logger log = LoggerFactory.getLogger(SysOperLogController.class);
@@ -38,8 +42,11 @@ public class SysOperLogController {
     @PreAuthorize("hasAuthority('system:log:query')")
     @GetMapping("/page")
     public Result<PageVO<SysOperLogEntity>> page(
-            @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+            @RequestParam(name = "pageNo", defaultValue = "1")
+            @Min(value = 1, message = "pageNo不能小于1") Integer pageNo,
+            @RequestParam(name = "pageSize", defaultValue = "10")
+            @Min(value = 1, message = "pageSize不能小于1")
+            @Max(value = 100, message = "pageSize不能超过100") Integer pageSize,
             @RequestParam(name = "operatorName", required = false) String operatorName,
             @RequestParam(name = "title", required = false) String title,
             @RequestParam(name = "status", required = false) Integer status,
@@ -48,6 +55,21 @@ public class SysOperLogController {
         
         Page<SysOperLogEntity> page = new Page<>(pageNo, pageSize);
         LambdaQueryWrapper<SysOperLogEntity> wrapper = new LambdaQueryWrapper<>();
+        // 分页列表只读取展示所需列，避免每行搬运请求参数、响应结果等大字段。
+        wrapper.select(
+                SysOperLogEntity::getId,
+                SysOperLogEntity::getTitle,
+                SysOperLogEntity::getBusinessType,
+                SysOperLogEntity::getMethod,
+                SysOperLogEntity::getRequestMethod,
+                SysOperLogEntity::getOperatorId,
+                SysOperLogEntity::getOperatorName,
+                SysOperLogEntity::getOperIp,
+                SysOperLogEntity::getOperLocation,
+                SysOperLogEntity::getStatus,
+                SysOperLogEntity::getOperTime,
+                SysOperLogEntity::getCostTime
+        );
         
         if (StringUtils.hasText(operatorName)) {
             wrapper.like(SysOperLogEntity::getOperatorName, operatorName);
@@ -67,7 +89,7 @@ public class SysOperLogController {
             wrapper.le(SysOperLogEntity::getOperTime, date.atTime(LocalTime.MAX));
         }
         
-        wrapper.orderByDesc(SysOperLogEntity::getOperTime);
+        wrapper.orderByDesc(SysOperLogEntity::getOperTime, SysOperLogEntity::getId);
         
         Page<SysOperLogEntity> result = operLogService.page(page, wrapper);
         return Result.success(PageVO.of(result));

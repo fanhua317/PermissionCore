@@ -20,4 +20,12 @@
         id, username, ip_address, location, browser, os, login_time, status, message
     </sql>
 
+    <!-- 固定条数查询不走分页插件，避免 recent 接口执行无意义的 COUNT。 -->
+    <select id="selectRecent" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM sys_login_log
+        ORDER BY login_time DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

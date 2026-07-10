@@ -7,6 +7,7 @@ import com.permacore.iam.security.filter.JwtAuthorizationOnceFilter;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
 import com.permacore.iam.mapper.SysUserMapper;
+import com.permacore.iam.mapper.SysPermissionMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,6 +41,7 @@ public class SecurityConfig {
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
     private final SysUserMapper userMapper;
+    private final SysPermissionMapper permissionMapper;
     private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}")
@@ -47,6 +49,9 @@ public class SecurityConfig {
 
     @org.springframework.beans.factory.annotation.Value("${app.security.public-docs:false}")
     private boolean publicDocs;
+
+    @org.springframework.beans.factory.annotation.Value("${app.security.public-metrics:false}")
+    private boolean publicMetrics;
 
     /**
      * 密码加密器
@@ -62,7 +67,7 @@ public class SecurityConfig {
      */
     @Bean
     public JwtAuthorizationOnceFilter jwtAuthorizationOnceFilter() {
-        return new JwtAuthorizationOnceFilter(jwtUtil, redisCacheUtil, userMapper, objectMapper);
+        return new JwtAuthorizationOnceFilter(jwtUtil, redisCacheUtil, userMapper, permissionMapper, objectMapper);
     }
 
     /**
@@ -98,6 +103,9 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**")
                                 .permitAll();
+                    }
+                    if (publicMetrics) {
+                        auth.requestMatchers("/actuator/prometheus").permitAll();
                     }
                     auth.anyRequest().authenticated();
                 })

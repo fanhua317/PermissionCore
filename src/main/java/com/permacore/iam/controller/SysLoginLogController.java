@@ -8,15 +8,17 @@ import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.service.SysLoginLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-
 import java.time.LocalTime;
 
 /**
@@ -26,6 +28,7 @@ import java.time.LocalTime;
 @RestController
 @RequestMapping("/api/login-log")
 @RequiredArgsConstructor
+@Validated
 public class SysLoginLogController {
 
     private static final Logger log = LoggerFactory.getLogger(SysLoginLogController.class);
@@ -39,8 +42,11 @@ public class SysLoginLogController {
     @PreAuthorize("hasAuthority('system:log:query')")
     @GetMapping("/page")
     public Result<PageVO<SysLoginLogEntity>> page(
-            @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+            @RequestParam(name = "pageNo", defaultValue = "1")
+            @Min(value = 1, message = "pageNo不能小于1") Integer pageNo,
+            @RequestParam(name = "pageSize", defaultValue = "10")
+            @Min(value = 1, message = "pageSize不能小于1")
+            @Max(value = 100, message = "pageSize不能超过100") Integer pageSize,
             @RequestParam(name = "username", required = false) String username,
             @RequestParam(name = "status", required = false) Integer status,
             @RequestParam(name = "startTime", required = false) String startTime,
@@ -64,14 +70,9 @@ public class SysLoginLogController {
             wrapper.le(SysLoginLogEntity::getLoginTime, date.atTime(LocalTime.MAX));
         }
 
-        wrapper.orderByDesc(SysLoginLogEntity::getLoginTime);
+        wrapper.orderByDesc(SysLoginLogEntity::getLoginTime, SysLoginLogEntity::getId);
 
         Page<SysLoginLogEntity> result = loginLogService.page(page, wrapper);
-
-        // 映射字段名以匹配前端
-        result.getRecords().forEach(r -> {
-            // 前端期望的字段名映射已在Entity中处理
-        });
 
         return Result.success(PageVO.of(result));
     }

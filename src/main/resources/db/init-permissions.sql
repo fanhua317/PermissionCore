@@ -300,8 +300,11 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM ssd_violations) THEN 0 ELSE 1 END;
 
 DROP TEMPORARY TABLE permacore_ssd_guard;
 
--- RBAC 基线可能改变有效权限；持久递增后，所有旧 access/refresh token 都会立即失效。
-UPDATE sys_user SET auth_version = auth_version + 1 WHERE del_flag = 0;
+-- RBAC 基线可能改变有效权限；O(1) 递增全局版本后，所有旧 access/refresh token
+-- 都会在下一次数据库门禁校验时立即失效，不扫描 sys_user。
+UPDATE sys_authorization_state
+SET global_auth_version = global_auth_version + 1
+WHERE id = 1;
 
 COMMIT;
 

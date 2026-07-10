@@ -20,8 +20,11 @@ public class AuthorizationStateServiceImpl implements AuthorizationStateService 
 
     @Override
     public void invalidateAllUsers() {
-        int updated = userMapper.incrementAllActiveAuthVersions();
-        log.info("全部授权状态已失效: userCount={}", updated);
+        int updated = userMapper.incrementGlobalAuthVersion();
+        if (updated != 1) {
+            throw new IllegalStateException("全局授权版本单例行不存在");
+        }
+        log.info("全部授权状态已失效: globalAuthVersionIncremented=true");
     }
 
     @Override

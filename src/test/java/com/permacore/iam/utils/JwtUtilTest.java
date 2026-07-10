@@ -36,6 +36,16 @@ class JwtUtilTest {
                 .hasMessageContaining("32");
     }
 
+    @Test
+    void rejectsCompactTokenAboveSafeHeaderBudgetAsBusinessError() {
+        JwtUtil jwtUtil = jwtUtil("0123456789abcdef0123456789abcdef");
+
+        assertThatThrownBy(() -> jwtUtil.generateAccessToken(
+                Map.of("userId", 7L, "oversized", "x".repeat(5000)), "session-1"))
+                .isInstanceOf(com.permacore.iam.security.handler.BusinessException.class)
+                .hasMessageContaining("JWT内容超过签发上限");
+    }
+
     static JwtUtil jwtUtil(String secret) {
         JwtUtil jwtUtil = new JwtUtil();
         ReflectionTestUtils.setField(jwtUtil, "secret", secret);

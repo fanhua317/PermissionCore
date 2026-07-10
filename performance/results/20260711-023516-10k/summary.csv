@@ -1,0 +1,2 @@
+﻿"runId","scenario","scale","targetRps","requestCount","requestRate","iterationCount","iterationRate","droppedIterations","errorRate","checkRate","p50Ms","p90Ms","p95Ms","p99Ms","avgMs","maxMs","receivedBytes","sentBytes"
+"soak","soak","10k","1","251971","139.94637671393778","251969","139.9452659005766","32","0.00001587484273983911","0.9999841251572602","7.443514","11.940263","13.92732","19.66240019999998","8.723435830186794","2921.31475","2548666942","255684645"

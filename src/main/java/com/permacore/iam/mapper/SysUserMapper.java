@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * <p>
@@ -18,7 +19,28 @@ import java.util.Collection;
 public interface SysUserMapper extends BaseMapper<SysUserEntity> {
     int incrementAuthVersions(@Param("userIds") Collection<Long> userIds);
 
-    int incrementAllActiveAuthVersions();
+    int incrementGlobalAuthVersion();
 
     SysUserEntity selectAuthorizationStateById(@Param("userId") Long userId);
+
+    SysUserEntity selectAuthenticationStateById(@Param("userId") Long userId);
+
+    SysUserEntity selectAuthenticationStateByUsername(@Param("username") String username);
+
+    /** Lock one active user so concurrent mutations of different users stay independent. */
+    SysUserEntity selectByIdForUpdate(@Param("userId") Long userId);
+
+    long countUserPage(@Param("username") String username,
+                       @Param("nickname") String nickname,
+                       @Param("sharedKeyword") boolean sharedKeyword,
+                       @Param("status") Integer status,
+                       @Param("deptId") Long deptId);
+
+    List<SysUserEntity> selectUserPage(@Param("offset") long offset,
+                                       @Param("pageSize") int pageSize,
+                                       @Param("username") String username,
+                                       @Param("nickname") String nickname,
+                                       @Param("sharedKeyword") boolean sharedKeyword,
+                                       @Param("status") Integer status,
+                                       @Param("deptId") Long deptId);
 }

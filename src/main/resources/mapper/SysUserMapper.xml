@@ -13,6 +13,7 @@
         <result column="dept_id" property="deptId" />
         <result column="status" property="status" />
         <result column="auth_version" property="authVersion" />
+        <result column="global_auth_version" property="globalAuthVersion" />
         <result column="create_by" property="createBy" />
         <result column="create_time" property="createTime" />
         <result column="update_by" property="updateBy" />
@@ -26,6 +27,75 @@
         id, username, password, nickname, email, phone, dept_id, status, auth_version, create_by, create_time, update_by, update_time, remark, del_flag
     </sql>
 
+    <!-- User-list responses deliberately exclude password, auth_version and
+         other columns that the list/edit UI never consumes. -->
+    <resultMap id="UserListResultMap" type="com.permacore.iam.domain.entity.SysUserEntity">
+        <id column="id" property="id" />
+        <result column="username" property="username" />
+        <result column="nickname" property="nickname" />
+        <result column="email" property="email" />
+        <result column="phone" property="phone" />
+        <result column="dept_id" property="deptId" />
+        <result column="status" property="status" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+
+    <sql id="User_Page_Where">
+        WHERE u.del_flag = 0
+        <!-- Leading-wildcard LIKE cannot use a normal B-tree index. Its
+             existing contains-match semantics are intentionally preserved. -->
+        <choose>
+            <when test="sharedKeyword">
+                AND (
+                    u.username LIKE CONCAT('%', #{username}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{nickname}, '%')
+                )
+            </when>
+            <otherwise>
+                <if test="username != null">
+                    AND u.username LIKE CONCAT('%', #{username}, '%')
+                </if>
+                <if test="nickname != null">
+                    AND u.nickname LIKE CONCAT('%', #{nickname}, '%')
+                </if>
+            </otherwise>
+        </choose>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+        <if test="deptId != null">
+            AND u.dept_id = #{deptId}
+        </if>
+    </sql>
+
+    <select id="countUserPage" resultType="long">
+        SELECT COUNT(*)
+        FROM sys_user u
+        <include refid="User_Page_Where" />
+    </select>
+
+    <!-- LIMIT is applied while scanning the covering pagination index. Only
+         the selected IDs are then joined back to the wider user rows. -->
+    <select id="selectUserPage" resultMap="UserListResultMap">
+        SELECT user_row.id,
+               user_row.username,
+               user_row.nickname,
+               user_row.email,
+               user_row.phone,
+               user_row.dept_id,
+               user_row.status,
+               user_row.create_time
+        FROM (
+            SELECT u.id
+            FROM sys_user u
+            <include refid="User_Page_Where" />
+            ORDER BY u.create_time DESC, u.id DESC
+            LIMIT #{offset}, #{pageSize}
+        ) page_ids
+        INNER JOIN sys_user user_row ON user_row.id = page_ids.id
+        ORDER BY user_row.create_time DESC, user_row.id DESC
+    </select>
+
     <update id="incrementAuthVersions">
         UPDATE sys_user
         SET auth_version = auth_version + 1
@@ -35,17 +105,48 @@
         </foreach>
     </update>
 
-    <update id="incrementAllActiveAuthVersions">
-        UPDATE sys_user
-        SET auth_version = auth_version + 1
-        WHERE del_flag = 0
+    <update id="incrementGlobalAuthVersion">
+        UPDATE sys_authorization_state
+        SET global_auth_version = global_auth_version + 1
+        WHERE id = 1
     </update>
 
     <select id="selectAuthorizationStateById" resultMap="BaseResultMap">
-        SELECT id, status, auth_version, del_flag
-        FROM sys_user
-        WHERE id = #{userId}
+        SELECT u.id, u.status, u.auth_version, u.del_flag, state.global_auth_version
+        FROM sys_user u
+        INNER JOIN sys_authorization_state state ON state.id = 1
+        WHERE u.id = #{userId}
         LIMIT 1
+    </select>
+
+    <select id="selectAuthenticationStateById" resultMap="BaseResultMap">
+        SELECT u.id, u.username, u.password, u.nickname, u.email, u.phone, u.dept_id,
+               u.status, u.auth_version, u.create_by, u.create_time, u.update_by,
+               u.update_time, u.remark, u.del_flag, state.global_auth_version
+        FROM sys_user u
+        INNER JOIN sys_authorization_state state ON state.id = 1
+        WHERE u.id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="selectAuthenticationStateByUsername" resultMap="BaseResultMap">
+        SELECT u.id, u.username, u.password, u.nickname, u.email, u.phone, u.dept_id,
+               u.status, u.auth_version, u.create_by, u.create_time, u.update_by,
+               u.update_time, u.remark, u.del_flag, state.global_auth_version
+        FROM sys_user u
+        INNER JOIN sys_authorization_state state ON state.id = 1
+        WHERE u.username = #{username} AND u.del_flag = 0
+        LIMIT 1
+    </select>
+
+    <!-- Must be acquired after the shared role-graph lock. Serializes only
+         mutations of the same active user instead of all role assignments. -->
+    <select id="selectByIdForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM sys_user
+        WHERE id = #{userId} AND del_flag = 0
+        LIMIT 1
+        FOR UPDATE
     </select>
 
 </mapper>

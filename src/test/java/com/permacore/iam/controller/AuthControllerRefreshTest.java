@@ -74,7 +74,8 @@ class AuthControllerRefreshTest {
         activeUser.setStatus((byte) 1);
         activeUser.setDelFlag((byte) 0);
         activeUser.setAuthVersion(0L);
-        when(userMapper.selectById(1L)).thenReturn(activeUser);
+        activeUser.setGlobalAuthVersion(0L);
+        when(userMapper.selectAuthenticationStateById(1L)).thenReturn(activeUser);
     }
 
     @Test
@@ -88,11 +89,14 @@ class AuthControllerRefreshTest {
             return claims;
         });
         cache.setJwtVersion(1L, "old-session", 2, TimeUnit.HOURS);
-        String refresh = jwtUtil.generateRefreshToken(Map.of("userId", 1L, "authVersion", 0L), "old-session");
+        String refresh = jwtUtil.generateRefreshToken(
+                Map.of("userId", 1L, "authVersion", 0L, "globalAuthVersion", 0L), "old-session");
 
         Result<Map<String, Object>> result = controller.refresh(Map.of("refreshToken", refresh));
         assertThat(result.getCode()).isEqualTo(200);
         assertThat(result.getData().get("accessToken")).isNotNull();
+        assertThat(jwtUtil.parseToken((String) result.getData().get("accessToken"))
+                .get("globalAuthVersion", Number.class).longValue()).isZero();
         assertThat(cache.getJwtVersion(1L)).isNotEqualTo("old-session");
 
         assertThatThrownBy(() -> controller.refresh(Map.of("refreshToken", refresh)))
@@ -108,7 +112,7 @@ class AuthControllerRefreshTest {
         activeUser.setStatus((byte) 0);
         cache.setJwtVersion(1L, "disabled-session", 2, TimeUnit.HOURS);
         String refresh = jwtUtil.generateRefreshToken(
-                Map.of("userId", 1L, "authVersion", 0L), "disabled-session");
+                Map.of("userId", 1L, "authVersion", 0L, "globalAuthVersion", 0L), "disabled-session");
 
         assertThatThrownBy(() -> controller.refresh(Map.of("refreshToken", refresh)))
                 .isInstanceOf(BusinessException.class);
@@ -123,7 +127,8 @@ class AuthControllerRefreshTest {
                 .thenReturn(new HashMap<>(Map.of("userId", 1L)));
         cache.setJwtVersion(1L, "empty-role-session", 2, TimeUnit.HOURS);
         String refresh = jwtUtil.generateRefreshToken(
-                Map.of("userId", 1L, "authVersion", 0L, "activeRoleIds", List.of()),
+                Map.of("userId", 1L, "authVersion", 0L, "globalAuthVersion", 0L,
+                        "activeRoleIds", List.of()),
                 "empty-role-session");
 
         controller.refresh(Map.of("refreshToken", refresh));
@@ -137,7 +142,8 @@ class AuthControllerRefreshTest {
         activeUser.setAuthVersion(2L);
         cache.setJwtVersion(1L, "stale-auth-session", 2, TimeUnit.HOURS);
         String refresh = jwtUtil.generateRefreshToken(
-                Map.of("userId", 1L, "authVersion", 1L), "stale-auth-session");
+                Map.of("userId", 1L, "authVersion", 1L, "globalAuthVersion", 0L),
+                "stale-auth-session");
 
         assertThatThrownBy(() -> controller.refresh(Map.of("refreshToken", refresh)))
                 .isInstanceOf(BusinessException.class)
@@ -148,7 +154,8 @@ class AuthControllerRefreshTest {
     void roleSwitchCannotReviveARequestRevokedAfterFilterValidation() {
         cache.setJwtVersion(1L, "role-switch-session", 2, TimeUnit.HOURS);
         String access = jwtUtil.generateAccessToken(
-                Map.of("userId", 1L, "authVersion", 0L, "activeRoleIds", List.of()),
+                Map.of("userId", 1L, "authVersion", 0L, "globalAuthVersion", 0L,
+                        "activeRoleIds", List.of()),
                 "role-switch-session");
         activeUser.setAuthVersion(1L);
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -161,5 +168,19 @@ class AuthControllerRefreshTest {
                 .extracting(error -> ((BusinessException) error).getCode())
                 .isEqualTo(401);
         verify(roleSessionService, never()).buildState(anyLong(), any());
+    }
+
+    @Test
+    void refreshRejectsAStaleGlobalAuthorizationVersion() {
+        activeUser.setGlobalAuthVersion(9L);
+        cache.setJwtVersion(1L, "stale-global-session", 2, TimeUnit.HOURS);
+        String refresh = jwtUtil.generateRefreshToken(
+                Map.of("userId", 1L, "authVersion", 0L, "globalAuthVersion", 8L),
+                "stale-global-session");
+
+        assertThatThrownBy(() -> controller.refresh(Map.of("refreshToken", refresh)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("RefreshToken");
+        verify(roleSessionService, never()).buildDefaultState(1L);
     }
 }

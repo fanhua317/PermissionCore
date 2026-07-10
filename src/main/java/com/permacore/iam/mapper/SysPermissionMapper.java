@@ -34,6 +34,7 @@ public interface SysPermissionMapper extends BaseMapper<SysPermissionEntity> {
     /**
      * 查询全部启用权限标识，用于展开 admin:* 通配权限
      */
-    @Select("SELECT perm_key FROM sys_permission WHERE status = 1")
+    @Select("SELECT perm_key FROM sys_permission " +
+            "WHERE status = 1 AND perm_key IS NOT NULL AND TRIM(perm_key) <> ''")
     Set<String> selectAllEnabledPermKeys();
 }

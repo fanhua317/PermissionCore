@@ -7,6 +7,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import com.permacore.iam.security.handler.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +34,7 @@ public class JwtUtil {
 
     private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
     private static final int MIN_SECRET_BYTES = 32;
+    private static final int MAX_COMPACT_TOKEN_BYTES = 4096;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -79,7 +81,7 @@ public class JwtUtil {
         Map<String, Object> tokenClaims = claims == null ? new HashMap<>() : new HashMap<>(claims);
         tokenClaims.put(CLAIM_TOKEN_TYPE, tokenType);
         tokenClaims.put(CLAIM_SESSION_ID, sessionId);
-        return Jwts.builder()
+        String token = Jwts.builder()
                 .claims(tokenClaims)
                 .subject(String.valueOf(userId))
                 .id(UUID.randomUUID().toString())
@@ -87,6 +89,10 @@ public class JwtUtil {
                 .expiration(new Date(System.currentTimeMillis() + ttlSeconds * 1000))
                 .signWith(getSecretKey(), Jwts.SIG.HS256)
                 .compact();
+        if (token.getBytes(StandardCharsets.US_ASCII).length > MAX_COMPACT_TOKEN_BYTES) {
+            throw new BusinessException("JWT内容超过签发上限，请联系管理员精简会话角色或权限");
+        }
+        return token;
     }
 
     public Claims parseToken(String token) {

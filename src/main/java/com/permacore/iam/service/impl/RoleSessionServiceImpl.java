@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -42,6 +43,8 @@ import java.util.stream.Collectors;
 public class RoleSessionServiceImpl implements RoleSessionService {
 
     private static final String ADMIN_PERMISSION = "admin:*";
+    private static final int MAX_JWT_PERMISSION_COUNT = 256;
+    private static final int MAX_JWT_PERMISSION_BYTES = 2048;
 
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleMapper roleMapper;
@@ -163,7 +166,7 @@ public class RoleSessionServiceImpl implements RoleSessionService {
         claims.put("nickname", nickname);
         claims.put("activeRoleIds", state.getActiveRoleIds());
         claims.put("effectiveRoleIds", state.getEffectiveRoleIds());
-        claims.put("permissions", state.getPermissions());
+        claims.put("permissions", compactPermissionsForJwt(state.getPermissions()));
         return claims;
     }
 
@@ -353,5 +356,30 @@ public class RoleSessionServiceImpl implements RoleSessionService {
             result.addAll(allEnabledPermissions);
         }
         return result;
+    }
+
+    /**
+     * 登录响应仍返回管理员的完整权限集合，便于前端构建菜单；JWT 中只保留
+     * admin:*，由授权过滤器在完成会话及授权版本校验后读取当前启用权限。
+     */
+    private List<String> compactPermissionsForJwt(Collection<String> permissions) {
+        TreeSet<String> normalized = permissions == null ? new TreeSet<>() : permissions.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(permission -> !permission.isEmpty())
+                .collect(Collectors.toCollection(TreeSet::new));
+        if (normalized.contains(ADMIN_PERMISSION)) {
+            return List.of(ADMIN_PERMISSION);
+        }
+        if (normalized.size() > MAX_JWT_PERMISSION_COUNT) {
+            throw new BusinessException("当前会话权限数量超过JWT签发上限，请联系管理员精简角色权限");
+        }
+        int permissionBytes = normalized.stream()
+                .mapToInt(permission -> permission.getBytes(StandardCharsets.UTF_8).length)
+                .sum();
+        if (permissionBytes > MAX_JWT_PERMISSION_BYTES) {
+            throw new BusinessException("当前会话权限内容超过JWT签发上限，请联系管理员精简角色权限");
+        }
+        return new ArrayList<>(normalized);
     }
 }

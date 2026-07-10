@@ -47,6 +47,11 @@ public class SysUserEntity implements Serializable {
     @JsonIgnore
     private Long authVersion;
 
+    /** Joined from the singleton authorization-state row; not a sys_user column. */
+    @TableField(exist = false)
+    @JsonIgnore
+    private Long globalAuthVersion;
+
     @TableField("create_by")
     private Long createBy;
 
@@ -144,6 +149,14 @@ public class SysUserEntity implements Serializable {
 
     public void setAuthVersion(Long authVersion) {
         this.authVersion = authVersion;
+    }
+
+    public Long getGlobalAuthVersion() {
+        return globalAuthVersion;
+    }
+
+    public void setGlobalAuthVersion(Long globalAuthVersion) {
+        this.globalAuthVersion = globalAuthVersion;
     }
 
     public Long getCreateBy() {

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-10T13:11:28.204Z",
+  "runId": "global-permission",
+  "scenario": "global-permission",
+  "scale": "100k",
+  "targetRps": 1,
+  "metrics": {
+    "requestCount": 23,
+    "requestRate": 0.8967396408019017,
+    "iterationCount": 10,
+    "iterationRate": 0.3898868003486529,
+    "droppedIterations": null,
+    "errorRate": 0,
+    "checkRate": 1,
+    "p50Ms": 154.473335,
+    "p90Ms": 2844.4904751999998,
+    "p95Ms": 3109.2390224999995,
+    "p99Ms": 3388.4647761000006,
+    "avgMs": 1113.9622874782608,
+    "maxMs": 3459.094829,
+    "receivedBytes": 282800,
+    "sentBytes": 14585
+  }
+}

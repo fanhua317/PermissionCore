@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-10T16:06:54.862Z",
+  "runId": "read-100-r1",
+  "scenario": "read-mix",
+  "scale": "10k",
+  "targetRps": 100,
+  "metrics": {
+    "requestCount": 12003,
+    "requestRate": 99.94750037421859,
+    "iterationCount": 12001,
+    "iterationRate": 99.93084662092788,
+    "droppedIterations": null,
+    "errorRate": 0.00008331250520703157,
+    "checkRate": 0.999916687494793,
+    "p50Ms": 7.091154,
+    "p90Ms": 10.474858000000003,
+    "p95Ms": 13.375858199999998,
+    "p99Ms": 15.245238739999978,
+    "avgMs": 7.5008469407647755,
+    "maxMs": 82.358848,
+    "receivedBytes": 120983300,
+    "sentBytes": 12178233
+  }
+}

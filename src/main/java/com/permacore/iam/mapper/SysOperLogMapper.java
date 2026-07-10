@@ -3,6 +3,9 @@ package com.permacore.iam.mapper;
 import com.permacore.iam.domain.entity.SysOperLogEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface SysOperLogMapper extends BaseMapper<SysOperLogEntity> {
 
+    List<SysOperLogEntity> selectRecent(@Param("limit") int limit);
 }

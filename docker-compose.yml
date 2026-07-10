@@ -22,6 +22,8 @@ services:
           EXISTS(SELECT 1 FROM information_schema.COLUMNS
           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user'
           AND COLUMN_NAME = 'auth_version')
+          AND EXISTS(SELECT 1 FROM sys_authorization_state
+          WHERE id = 1)
           AND EXISTS(SELECT 1 FROM sys_role
           WHERE role_key = 'ROLE_ADMIN' AND status = 1 AND del_flag = 0)
           AND EXISTS(SELECT 1 FROM sys_permission

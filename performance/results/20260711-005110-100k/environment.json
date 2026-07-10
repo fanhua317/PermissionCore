@@ -1,0 +1,78 @@
+{
+    "schemaVersion":  1,
+    "capturedAt":  "2026-07-11T00:52:15.9846542+08:00",
+    "project":  "permacore-perf",
+    "scale":  "100k",
+    "git":  {
+                "commit":  "121392fae449259826ec187aa3522741467d4e40",
+                "dirty":  true
+            },
+    "host":  {
+                 "os":  "Microsoft Windows NT 10.0.26200.0",
+                 "machine":  "local-windows-host",
+                 "cpu":  "AMD Ryzen 7 6800H with Radeon Graphics",
+                 "logicalProcessors":  16,
+                 "memoryBytes":  16312639488,
+                 "powershell":  "5.1.26100.8655"
+             },
+    "tools":  {
+                  "docker":  "29.2.1",
+                  "k6Image":  "grafana/k6:2.0.0",
+                  "k6Version":  "k6 v2.0.0+dirty (commit/8c3be52cc1-dirty, go1.26.3, linux/amd64)"
+              },
+    "images":  [
+                   {
+                       "service":  "backend",
+                       "configuredImage":  "permacore-perf-backend",
+                       "imageId":  "sha256:4049a0beca4bc325ed9c1b004c82789189c84529983c21d41a525b672d4ac1b4",
+                       "repoDigests":  [
+                                           "permacore-perf-backend@sha256:4049a0beca4bc325ed9c1b004c82789189c84529983c21d41a525b672d4ac1b4"
+                                       ]
+                   },
+                   {
+                       "service":  "db-access-init",
+                       "configuredImage":  "mysql:8.0.46",
+                       "imageId":  "sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+                       "repoDigests":  [
+                                           "mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+                                           "m.daocloud.io/docker.io/library/mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b"
+                                       ]
+                   },
+                   {
+                       "service":  "redis",
+                       "configuredImage":  "redis:7.4.7-alpine3.21",
+                       "imageId":  "sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf",
+                       "repoDigests":  [
+                                           "redis@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf",
+                                           "m.daocloud.io/docker.io/library/redis@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf"
+                                       ]
+                   },
+                   {
+                       "service":  "mysql",
+                       "configuredImage":  "mysql:8.0.46",
+                       "imageId":  "sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+                       "repoDigests":  [
+                                           "mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+                                           "m.daocloud.io/docker.io/library/mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b"
+                                       ]
+                   }
+               ],
+    "endpoints":  {
+                      "backend":  "http://127.0.0.1:15432",
+                      "management":  "http://127.0.0.1:15433/actuator/prometheus"
+                  },
+    "resources":  {
+                      "backend":  "4 vCPU, 2 GiB, JVM Xms/Xmx 1 GiB",
+                      "mysql":  "2 vCPU, 2 GiB, InnoDB buffer pool 1 GiB",
+                      "redis":  "1 vCPU, 512 MiB, maxmemory 384 MiB"
+                  },
+    "data":  {
+                 "users":  100000,
+                 "departments":  500,
+                 "roles":  200,
+                 "permissions":  1000,
+                 "loginLogs":  200000,
+                 "operationLogs":  200000,
+                 "loginAccounts":  200
+             }
+}

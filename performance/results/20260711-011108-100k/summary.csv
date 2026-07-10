@@ -1,0 +1,3 @@
+﻿"runId","scenario","scale","targetRps","requestCount","requestRate","iterationCount","iterationRate","droppedIterations","errorRate","checkRate","p50Ms","p90Ms","p95Ms","p99Ms","avgMs","maxMs","receivedBytes","sentBytes"
+"write-contention","write-contention","100k","1","40359","297.2384615742488","40356","297.21636698853746",,"0.003097202606605714","0.9969027973933943","40.739178","92.83444080000002","125.99288579999997","204.6474202","53.44217552508733","1101.474975","18777902","42045989"
+"global-permission","global-permission","100k","1","23","15.113035143876235","10","6.57088484516358",,"0","1","79.789398","123.43396080000002","128.0654733","136.52689006","64.75446430434782","138.905261","283441","14967"

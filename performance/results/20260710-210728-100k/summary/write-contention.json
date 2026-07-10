@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-10T13:10:48.285Z",
+  "runId": "write-contention",
+  "scenario": "write-contention",
+  "scale": "100k",
+  "targetRps": 1,
+  "metrics": {
+    "requestCount": 3879,
+    "requestRate": 31.875618099173767,
+    "iterationCount": 3876,
+    "iterationRate": 31.85096564898106,
+    "droppedIterations": null,
+    "errorRate": 0,
+    "checkRate": 1,
+    "p50Ms": 560.884079,
+    "p90Ms": 845.9022354000001,
+    "p95Ms": 964.5348809,
+    "p99Ms": 2392.752396359997,
+    "avgMs": 620.3374251972174,
+    "maxMs": 3849.394128,
+    "receivedBytes": 1884718,
+    "sentBytes": 3928396
+  }
+}

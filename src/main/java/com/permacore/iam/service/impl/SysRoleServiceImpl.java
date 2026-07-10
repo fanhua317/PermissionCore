@@ -53,7 +53,9 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRoleEntity
     private final AuthorizationStateService authorizationStateService;
 
     @Override
+    @Transactional
     public boolean saveRole(SysRoleEntity role) {
+        roleMapper.lockAllRoleIds();
         validateNewRole(role);
         role.setId(null);
         role.setDelFlag((byte) 0);

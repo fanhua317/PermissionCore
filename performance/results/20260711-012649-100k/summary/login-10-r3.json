@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-10T17:47:16.966Z",
+  "runId": "login-10-r3",
+  "scenario": "login",
+  "scale": "100k",
+  "targetRps": 1,
+  "metrics": {
+    "requestCount": 6552,
+    "requestRate": 54.542493121014296,
+    "iterationCount": 6552,
+    "iterationRate": 54.542493121014296,
+    "droppedIterations": null,
+    "errorRate": 0,
+    "checkRate": 1,
+    "p50Ms": 187.36407100000002,
+    "p90Ms": 208.1079197,
+    "p95Ms": 224.5972246,
+    "p99Ms": 270.09821568,
+    "avgMs": 182.904028053419,
+    "maxMs": 369.826334,
+    "receivedBytes": 17612916,
+    "sentBytes": 1454544
+  }
+}

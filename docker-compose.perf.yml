@@ -1,0 +1,156 @@
+name: ${PERF_COMPOSE_PROJECT_NAME:-permacore-perf}
+
+x-backend-common: &backend-common
+  # Both nodes must run the identical artifact. Without an explicit shared
+  # image, Compose gives the profiled backend-b a different implicit image
+  # name and -SkipBuild can silently reuse stale code on only one node.
+  image: ${PERF_BACKEND_IMAGE:-permacore-perf-backend:latest}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      MAVEN_IMAGE: ${MAVEN_IMAGE:-maven:3.9.16-eclipse-temurin-21-alpine}
+      JRE_IMAGE: ${JRE_IMAGE:-eclipse-temurin:21-jre-alpine-3.23}
+  restart: "no"
+  entrypoint:
+    - java
+    - -jar
+    - app.jar
+    - --spring.profiles.active=docker,perf
+  environment: &backend-environment
+    MYSQL_USER: permacore_app
+    MYSQL_PASSWORD: ${PERF_MYSQL_APP_PASSWORD:?PERF_MYSQL_APP_PASSWORD is required}
+    REDIS_PASSWORD: ${PERF_REDIS_PASSWORD:?PERF_REDIS_PASSWORD is required}
+    JWT_SECRET: ${PERF_JWT_SECRET:?PERF_JWT_SECRET is required}
+    APP_BOOTSTRAP_ENABLED: ${PERF_APP_BOOTSTRAP_ENABLED:-true}
+    APP_BOOTSTRAP_ADMIN_PASSWORD: ${PERF_ADMIN_PASSWORD:?PERF_ADMIN_PASSWORD is required}
+    PUBLIC_API_DOCS: "false"
+    # Keep the product default for normal runs. A baseline may raise this
+    # explicitly only to measure the already-documented oversized admin JWT.
+    SERVER_MAX_HTTP_REQUEST_HEADER_SIZE: ${PERF_MAX_HTTP_REQUEST_HEADER_SIZE:-8192}
+    PERF_HIKARI_MIN_IDLE: ${PERF_HIKARI_MIN_IDLE:-2}
+    PERF_HIKARI_MAX_POOL_SIZE: ${PERF_HIKARI_MAX_POOL_SIZE:-20}
+    JAVA_TOOL_OPTIONS: >-
+      -Xms1g -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200
+      -XX:+ExitOnOutOfMemoryError
+  volumes:
+    - perf-uploads-data:/app/uploads
+  depends_on:
+    db-access-init:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+  healthcheck: &backend-healthcheck
+    test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:15432/api/health || exit 1"]
+    interval: 5s
+    timeout: 3s
+    retries: 24
+    start_period: 20s
+  cpus: 4.0
+  mem_limit: 2g
+
+services:
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.0.46}
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PERF_MYSQL_ROOT_PASSWORD:?PERF_MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: permacore_iam
+      TZ: Asia/Shanghai
+    volumes:
+      - perf-mysql-data:/var/lib/mysql
+      - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./src/main/resources/db/init-permissions.sql:/docker-entrypoint-initdb.d/02-init-permissions.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=1G
+      - --performance-schema=ON
+      - --slow-query-log=ON
+      - --long-query-time=0.2
+      - --log-output=TABLE
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$${MYSQL_ROOT_PASSWORD}"
+          mysql --protocol=tcp --host=127.0.0.1 --user=root
+          --database="$${MYSQL_DATABASE}" --silent --skip-column-names
+          --execute="SELECT
+          EXISTS(SELECT 1 FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user'
+          AND COLUMN_NAME = 'auth_version')
+          AND EXISTS(SELECT 1 FROM sys_authorization_state
+          WHERE id = 1)
+          AND EXISTS(SELECT 1 FROM sys_role
+          WHERE role_key = 'ROLE_ADMIN' AND status = 1 AND del_flag = 0)
+          AND EXISTS(SELECT 1 FROM sys_permission
+          WHERE perm_key = 'admin:*' AND status = 1)" | grep -qx 1
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+    cpus: 2.0
+    mem_limit: 2g
+
+  db-access-init:
+    image: ${MYSQL_IMAGE:-mysql:8.0.46}
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PERF_MYSQL_ROOT_PASSWORD:?PERF_MYSQL_ROOT_PASSWORD is required}
+      MYSQL_APP_PASSWORD: ${PERF_MYSQL_APP_PASSWORD:?PERF_MYSQL_APP_PASSWORD is required}
+    volumes:
+      - ./docker/mysql/ensure-app-user.sh:/usr/local/bin/ensure-app-user.sh:ro
+    entrypoint: ["sh", "/usr/local/bin/ensure-app-user.sh"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4.7-alpine3.21}
+    restart: "no"
+    environment:
+      REDIS_PASSWORD: ${PERF_REDIS_PASSWORD:?PERF_REDIS_PASSWORD is required}
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server --appendonly no --save ""
+        --requirepass "$$REDIS_PASSWORD" --maxmemory 384mb
+        --maxmemory-policy noeviction
+    volumes:
+      - perf-redis-data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -qx PONG
+      interval: 5s
+      timeout: 3s
+      retries: 16
+    cpus: 1.0
+    mem_limit: 512m
+
+  backend:
+    <<: *backend-common
+    ports:
+      - "127.0.0.1:15432:15432"
+      - "127.0.0.1:15433:15433"
+
+  # Optional second node for cross-node session and authorization-version
+  # consistency checks: docker compose -f docker-compose.perf.yml
+  # --profile consistency up -d backend-b
+  backend-b:
+    <<: *backend-common
+    profiles: ["consistency"]
+    environment:
+      <<: *backend-environment
+      INSTANCE_NAME: backend-b
+    ports:
+      - "127.0.0.1:15434:15432"
+      - "127.0.0.1:15435:15433"
+    healthcheck: *backend-healthcheck
+
+volumes:
+  perf-mysql-data:
+  perf-redis-data:
+  perf-uploads-data:

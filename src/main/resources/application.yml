@@ -72,3 +72,19 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /doc.html
+
+# Actuator is present for reproducible performance measurements, but every
+# endpoint (including the discovery page) is closed unless the perf profile is
+# explicitly activated. application-perf.yml is the only profile that opens
+# the Prometheus endpoint, on a dedicated management port.
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      discovery:
+        enabled: false
+      exposure:
+        include: []
+  endpoint:
+    prometheus:
+      enabled: false

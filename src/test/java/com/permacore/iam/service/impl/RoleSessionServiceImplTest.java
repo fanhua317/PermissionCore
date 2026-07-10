@@ -12,14 +12,18 @@ import com.permacore.iam.mapper.SysRolePermissionMapper;
 import com.permacore.iam.mapper.SysUserRoleMapper;
 import com.permacore.iam.security.handler.BusinessException;
 import com.permacore.iam.service.SysSodConstraintService;
+import com.permacore.iam.utils.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -159,6 +163,51 @@ class RoleSessionServiceImplTest {
         assertThat(permissions).containsExactly("admin:*", "system:user:query", "user:add");
     }
 
+    @Test
+    void adminJwtClaimKeepsOnlyWildcardWhileSessionResponseRemainsExpanded() {
+        SessionRoleStateVO state = new SessionRoleStateVO();
+        state.setPermissions(List.of("admin:*", "system:user:query", "user:add"));
+        state.setActiveRoleIds(List.of(1L));
+        state.setEffectiveRoleIds(List.of(1L));
+
+        Map<String, Object> claims = service.buildJwtClaims(1L, "admin", "管理员", state);
+        JwtUtil jwtUtil = jwtUtil();
+        String token = jwtUtil.generateAccessToken(claims, "admin-session");
+
+        assertThat(claims.get("permissions")).isEqualTo(List.of("admin:*"));
+        assertThat(jwtUtil.parseToken(token).get("permissions", List.class)).containsExactly("admin:*");
+        assertThat(token.length()).isLessThan(800);
+        assertThat(state.getPermissions()).containsExactly("admin:*", "system:user:query", "user:add");
+    }
+
+    @Test
+    void rejectsOrdinaryPermissionCountAboveJwtBudget() {
+        SessionRoleStateVO state = new SessionRoleStateVO();
+        state.setPermissions(IntStream.range(0, 257)
+                .mapToObj(index -> "resource:" + index + ":query")
+                .toList());
+        state.setActiveRoleIds(List.of(2L));
+        state.setEffectiveRoleIds(List.of(2L));
+
+        assertThatThrownBy(() -> service.buildJwtClaims(2L, "user", "普通用户", state))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("权限数量");
+    }
+
+    @Test
+    void rejectsOrdinaryPermissionBytesAboveJwtBudget() {
+        SessionRoleStateVO state = new SessionRoleStateVO();
+        state.setPermissions(IntStream.range(0, 80)
+                .mapToObj(index -> "权限资源" + index + ":read:extended")
+                .toList());
+        state.setActiveRoleIds(List.of(2L));
+        state.setEffectiveRoleIds(List.of(2L));
+
+        assertThatThrownBy(() -> service.buildJwtClaims(2L, "user", "普通用户", state))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("权限内容");
+    }
+
     private SysRoleEntity role(Long id, String roleKey, String roleName, Integer sortOrder) {
         SysRoleEntity role = new SysRoleEntity();
         role.setId(id);
@@ -168,6 +217,15 @@ class RoleSessionServiceImplTest {
         role.setStatus((byte) 1);
         role.setDelFlag((byte) 0);
         return role;
+    }
+
+    private JwtUtil jwtUtil() {
+        JwtUtil jwtUtil = new JwtUtil();
+        ReflectionTestUtils.setField(jwtUtil, "secret", "0123456789abcdef0123456789abcdef");
+        ReflectionTestUtils.setField(jwtUtil, "expiration", 3600L);
+        ReflectionTestUtils.setField(jwtUtil, "refreshExpiration", 7200L);
+        jwtUtil.initializeSecretKey();
+        return jwtUtil;
     }
 
     private SysSodConstraintEntity sod(Long id, String name, String roleSet, Byte type) {

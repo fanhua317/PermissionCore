@@ -92,6 +92,7 @@
 
     <!-- 详情对话框 -->
     <el-dialog v-model="detailVisible" title="操作日志详情" width="700px">
+      <div v-loading="detailLoading" class="detail-content">
       <el-descriptions :column="2" border v-if="currentLog">
         <el-descriptions-item label="操作模块">{{ currentLog.title }}</el-descriptions-item>
         <el-descriptions-item label="业务类型">
@@ -122,6 +123,7 @@
           <span class="error-msg">{{ currentLog.errorMsg }}</span>
         </el-descriptions-item>
       </el-descriptions>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -146,6 +148,7 @@ const dateRange = ref<[string, string] | null>(null);
 const canDelete = computed(() => userStore.hasPermission('log:delete'));
 
 const detailVisible = ref(false);
+const detailLoading = ref(false);
 const currentLog = ref<any>(null);
 
 const businessTypeMap: Record<number, { name: string; tag: string }> = {
@@ -220,9 +223,18 @@ const handleClear = async () => {
   }
 };
 
-const handleDetail = (row: any) => {
-  currentLog.value = row;
+const handleDetail = async (row: any) => {
+  currentLog.value = null;
   detailVisible.value = true;
+  detailLoading.value = true;
+  try {
+    currentLog.value = await request.get(`/api/oper-log/${row.id}`);
+  } catch (error: any) {
+    detailVisible.value = false;
+    ElMessage.error(error?.message || '获取操作日志详情失败');
+  } finally {
+    detailLoading.value = false;
+  }
 };
 
 onMounted(() => {
@@ -271,5 +283,9 @@ onMounted(() => {
 
 .error-msg {
   color: #f56c6c;
+}
+
+.detail-content {
+  min-height: 120px;
 }
 </style>

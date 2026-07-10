@@ -1,6 +1,5 @@
 package com.permacore.iam.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.permacore.iam.domain.entity.SysLoginLogEntity;
 import com.permacore.iam.domain.entity.SysUserEntity;
@@ -162,7 +161,7 @@ public class AuthController {
 
         try {
             roleMapper.lockAllRoleIdsShared();
-            SysUserEntity user = requireActiveUser(sysUserMapper.selectById(userId));
+            SysUserEntity user = requireActiveUser(sysUserMapper.selectAuthenticationStateById(userId));
             if (!matchesAuthVersion(refreshClaims, user)) {
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "RefreshToken 已失效");
             }
@@ -229,7 +228,7 @@ public class AuthController {
         Claims claims = jwtUtil.parseToken(token);
         Long userId = Long.parseLong(claims.getSubject());
         roleMapper.lockAllRoleIdsShared();
-        SysUserEntity user = requireActiveUser(sysUserMapper.selectById(userId));
+        SysUserEntity user = requireActiveUser(sysUserMapper.selectAuthenticationStateById(userId));
         if (!matchesAuthVersion(claims, user)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "会话已失效，请重新登录");
         }
@@ -253,7 +252,7 @@ public class AuthController {
         Claims claims = jwtUtil.parseToken(token);
         Long userId = Long.parseLong(claims.getSubject());
         roleMapper.lockAllRoleIdsShared();
-        SysUserEntity user = requireActiveUser(sysUserMapper.selectById(userId));
+        SysUserEntity user = requireActiveUser(sysUserMapper.selectAuthenticationStateById(userId));
         if (!matchesAuthVersion(claims, user)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "会话已失效，请重新登录");
         }
@@ -269,7 +268,7 @@ public class AuthController {
         Claims currentClaims = jwtUtil.parseToken(token);
         Long userId = Long.parseLong(currentClaims.getSubject());
         roleMapper.lockAllRoleIdsShared();
-        SysUserEntity user = requireActiveUser(sysUserMapper.selectById(userId));
+        SysUserEntity user = requireActiveUser(sysUserMapper.selectAuthenticationStateById(userId));
         if (!matchesAuthVersion(currentClaims, user)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "会话已失效，请重新登录");
         }
@@ -310,7 +309,7 @@ public class AuthController {
         Claims passwordClaims = jwtUtil.parseToken(token);
         Long userId = Long.parseLong(passwordClaims.getSubject());
         roleMapper.lockAllRoleIds();
-        SysUserEntity user = requireActiveUser(sysUserMapper.selectById(userId));
+        SysUserEntity user = requireActiveUser(sysUserMapper.selectAuthenticationStateById(userId));
         if (!matchesAuthVersion(passwordClaims, user)) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "会话已失效，请重新登录");
         }
@@ -423,6 +422,10 @@ public class AuthController {
         Map<String, Object> claims = roleSessionService.buildJwtClaims(
                 user.getId(), user.getUsername(), user.getNickname(), state);
         claims.put("authVersion", user.getAuthVersion() == null ? 0L : user.getAuthVersion());
+        if (user.getGlobalAuthVersion() == null) {
+            throw new IllegalStateException("全局授权版本未初始化");
+        }
+        claims.put("globalAuthVersion", user.getGlobalAuthVersion());
         String sessionId = UUID.randomUUID().toString();
         String accessToken = jwtUtil.generateAccessToken(claims, sessionId);
         String refreshToken = jwtUtil.generateRefreshToken(claims, sessionId);
@@ -463,9 +466,7 @@ public class AuthController {
     }
 
     private SysUserEntity findUserByUsername(String username) {
-        return sysUserMapper.selectOne(new LambdaQueryWrapper<SysUserEntity>()
-                .eq(SysUserEntity::getUsername, username)
-                .eq(SysUserEntity::getDelFlag, (byte) 0));
+        return sysUserMapper.selectAuthenticationStateByUsername(username);
     }
 
     private SysUserEntity requireActiveUser(SysUserEntity user) {
@@ -478,11 +479,14 @@ public class AuthController {
 
     private boolean matchesAuthVersion(Claims claims, SysUserEntity user) {
         Object claimValue = claims.get("authVersion");
-        if (!(claimValue instanceof Number)) {
+        Object globalClaimValue = claims.get("globalAuthVersion");
+        if (!(claimValue instanceof Number) || !(globalClaimValue instanceof Number)
+                || user.getGlobalAuthVersion() == null) {
             return false;
         }
         long currentVersion = user.getAuthVersion() == null ? 0L : user.getAuthVersion();
-        return ((Number) claimValue).longValue() == currentVersion;
+        return ((Number) claimValue).longValue() == currentVersion
+                && ((Number) globalClaimValue).longValue() == user.getGlobalAuthVersion();
     }
 
     private DecodedImage decodeAvatar(MultipartFile file) throws IOException {

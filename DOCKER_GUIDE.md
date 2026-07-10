@@ -127,7 +127,7 @@ Redis 必须同时满足：
 
 预期结果是 PONG。密码只通过容器环境传入，不放在 redis-cli 参数中。
 
-不要执行 `FLUSHDB` 或 `FLUSHALL` 来“刷新权限”。规范的权限初始化会在同一事务内递增 `auth_version`，旧 token 随即被数据库门禁拒绝；Redis 中的旧会话键无法绕过该检查，无需清理。清空 Redis 反而可能误删共享数据库中的其他数据。
+不要执行 `FLUSHDB` 或 `FLUSHALL` 来“刷新权限”。规范的全局权限初始化会在同一事务内递增单例 `global_auth_version`，用户状态、密码或用户角色变化则递增个人 `auth_version`；旧 token 任一版本不匹配都会被数据库门禁拒绝。Redis 中的旧会话键无法绕过检查，无需清理，清空 Redis 反而可能误删共享数据库中的其他数据。
 
 ## 7. 头像与反向代理
 
@@ -222,9 +222,9 @@ Bash 也可使用同一组命令，只需把目标路径写为 backups/permacore
 
 ## 11. 已有数据卷升级
 
-MySQL 官方镜像只在空数据目录首次创建时执行 /docker-entrypoint-initdb.d。已有数据卷不会因为重新构建镜像而重跑 schema、migration 或 init-permissions.sql。2026-07-10 之前创建的数据库缺少 sys_user.auth_version，也可能缺少关系外键与禁止自继承检查，必须在新版 backend 启动前显式迁移；若存在孤儿关联，migration 会失败并要求先修复数据。Compose 的 MySQL healthcheck 会同时检查该列及 ROLE_ADMIN/admin:* 基线，避免初始化只完成一半就启动后端；旧卷缺列时保持 unhealthy 并阻止 backend 启动，但仍可使用 docker compose exec/cp 完成下述迁移。
+MySQL 官方镜像只在空数据目录首次创建时执行 /docker-entrypoint-initdb.d。已有数据卷不会因为重新构建镜像而重跑 schema、migration 或 init-permissions.sql。旧数据库可能缺少 `sys_user.auth_version`、单例 `sys_authorization_state.global_auth_version`、关系约束或查询索引，必须在新版 backend 启动前显式执行两份迁移；若存在孤儿关联，第一份 migration 会失败并要求先修复数据。Compose 的 MySQL healthcheck 会检查 `auth_version` 列、全局授权单例行及 ROLE_ADMIN/admin:* 基线，但它不是完整迁移校验；仍需按下述固定顺序升级。
 
-严格顺序是：备份 → 停止写入 → 运行 20260710 migration → 运行 init-permissions.sql → 启动新版。先停止外部入口：
+严格顺序是：备份 → 停止写入 → 运行 `20260710_add_auth_version.sql` → 运行 `20260710_optimize_user_queries.sql` → 运行 `init-permissions.sql` → 启动新版。先停止外部入口：
 
     docker compose stop frontend backend
     docker compose up -d mysql
@@ -235,7 +235,11 @@ MySQL 官方镜像只在空数据目录首次创建时执行 /docker-entrypoint-
     docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 --binary-mode=1 permacore_iam < /tmp/20260710_add_auth_version.sql'
     docker compose exec -T mysql rm -f /tmp/20260710_add_auth_version.sql
 
-migration 成功后，先按《权限更新指南》第 8 节保存 ROLE_USER/ROLE_GUEST 管理授权与 ROLE_AUDITOR 非基线授权的检测结果，再执行 canonical 权限脚本：
+    docker compose cp .\src\main\resources\db\migrations\20260710_optimize_user_queries.sql mysql:/tmp/20260710_optimize_user_queries.sql
+    docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 --binary-mode=1 permacore_iam < /tmp/20260710_optimize_user_queries.sql'
+    docker compose exec -T mysql rm -f /tmp/20260710_optimize_user_queries.sql
+
+两份 migration 均成功后，先按《权限更新指南》第 8 节保存 ROLE_USER/ROLE_GUEST 管理授权与 ROLE_AUDITOR 非基线授权的检测结果，再执行 canonical 权限脚本：
 
     docker compose cp .\src\main\resources\db\init-permissions.sql mysql:/tmp/init-permissions.sql
     docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 --binary-mode=1 permacore_iam < /tmp/init-permissions.sql'
@@ -246,7 +250,7 @@ migration 成功后，先按《权限更新指南》第 8 节保存 ROLE_USER/RO
     docker compose run --rm db-access-init
     docker compose up -d backend frontend
 
-让所有用户重新登录，并验证旧 access/refresh token 已失效。若 MySQL 曾临时安全绑定到本机，也可依次运行 .\migrate-database.ps1 和 .\update-permissions.ps1；两者均会确认目标并以原始 UTF-8 字节调用 mysql。
+让所有用户重新登录，并验证旧 access/refresh token 已失效。若 MySQL 曾临时安全绑定到本机，也可依次运行 `.\migrate-database.ps1` 和 `.\update-permissions.ps1`；前者在一次确认和密码生命周期中固定执行上述两份 migration，逐项失败即停，后者只执行权限初始化。
 
 ## 12. 危险操作
 
@@ -277,3 +281,19 @@ migration 成功后，先按《权限更新指南》第 8 节保存 ROLE_USER/RO
 - 头像上传与读取。
 - 数据重启后仍存在。
 - Swagger 在未显式开启 public-docs 时不能匿名访问。
+
+## 14. 隔离性能环境
+
+`docker-compose.perf.yml` 是独立压测栈，不连接宿主机常规 MySQL、不复用默认 Compose 数据卷，也不改变默认部署的 `/api/health` 或业务 API。它以 `docker,perf` profile 启动后端，仅在宿主回环地址发布：
+
+| 用途 | 地址 |
+|---|---|
+| 压测业务 API | http://127.0.0.1:15432 |
+| Prometheus 指标 | http://127.0.0.1:15433/actuator/prometheus |
+
+固定资源边界为后端 4 vCPU/2 GiB（JVM Xms/Xmx 1 GiB）、MySQL 2 vCPU/2 GiB（Buffer Pool 1 GiB）、Redis 1 vCPU/512 MiB。五项 `PERF_*` 秘密只放在当前进程环境中，随后可执行：
+
+    .\performance\Invoke-PerformanceTest.ps1 -Action Smoke -Scale 10k
+    .\performance\Invoke-PerformanceTest.ps1 -Action Baseline -Scale 10k -Rates 50,100,200,400,800 -Repeats 3 -WarmupSeconds 30 -SampleSeconds 120
+
+除 `Prepare` 外，编排器默认清理隔离容器和卷；保留环境调试后必须执行 `.\performance\Invoke-PerformanceTest.ps1 -Action Down`。复现说明见 [performance/README.md](performance/README.md)，经审阅结果和限制见 [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)。当前可公开引用的受控结论仅为 10k 用户读混合最高健康档 200 RPS；100k 用户读混合受前导通配符模糊查询限制，不能据此推导生产 SLA。

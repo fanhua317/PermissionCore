@@ -6,6 +6,20 @@
 CREATE DATABASE IF NOT EXISTS permacore_iam DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE permacore_iam;
 
+-- 全局授权状态单例。角色、权限、继承或 SoD 变化时只递增这一行，避免全表更新用户。
+CREATE TABLE IF NOT EXISTS sys_authorization_state (
+    id                  TINYINT  NOT NULL COMMENT '固定为1的单例ID',
+    global_auth_version BIGINT   NOT NULL DEFAULT 0 COMMENT '全局授权版本',
+    update_time         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                  ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    CONSTRAINT chk_authorization_state_singleton CHECK (id = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='全局授权状态单例';
+
+INSERT INTO sys_authorization_state (id, global_auth_version)
+VALUES (1, 0)
+ON DUPLICATE KEY UPDATE id = VALUES(id);
+
 -- 1. 部门表
 CREATE TABLE IF NOT EXISTS sys_dept (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '部门ID',
@@ -43,7 +57,8 @@ CREATE TABLE IF NOT EXISTS sys_user (
     remark      VARCHAR(500) DEFAULT NULL             COMMENT '备注',
     del_flag    TINYINT      DEFAULT 0                COMMENT '删除标志：0-正常 1-删除',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_username (username)
+    UNIQUE KEY uk_username (username),
+    KEY idx_user_active_created (del_flag, create_time DESC, id DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
 -- 3. 角色表
@@ -87,6 +102,7 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (id),
     UNIQUE KEY uk_user_role (user_id, role_id),
+    KEY idx_user_role_role_user (role_id, user_id),
     CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES sys_user (id),
     CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES sys_role (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关联表';
@@ -111,6 +127,7 @@ CREATE TABLE IF NOT EXISTS sys_role_inheritance (
     depth         INT    DEFAULT 1                COMMENT '继承深度',
     PRIMARY KEY (id),
     UNIQUE KEY uk_ancestor_descendant (ancestor_id, descendant_id),
+    KEY idx_role_inheritance_desc_anc (descendant_id, ancestor_id),
     CONSTRAINT chk_role_inheritance_no_self CHECK (ancestor_id <> descendant_id),
     CONSTRAINT fk_role_inheritance_ancestor FOREIGN KEY (ancestor_id) REFERENCES sys_role (id),
     CONSTRAINT fk_role_inheritance_descendant FOREIGN KEY (descendant_id) REFERENCES sys_role (id)
@@ -138,7 +155,8 @@ CREATE TABLE IF NOT EXISTS sys_login_log (
     status      TINYINT      DEFAULT 1                COMMENT '登录状态：1-成功 0-失败',
     message     VARCHAR(255) DEFAULT NULL             COMMENT '登录消息',
     PRIMARY KEY (id),
-    KEY idx_username (username)
+    KEY idx_username (username),
+    KEY idx_login_time_id (login_time DESC, id DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='登录日志表';
 
 -- 10. 操作日志表
@@ -159,5 +177,5 @@ CREATE TABLE IF NOT EXISTS sys_oper_log (
     oper_time      DATETIME      DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
     cost_time      BIGINT        DEFAULT 0                COMMENT '耗时（毫秒）',
     PRIMARY KEY (id),
-    KEY idx_oper_time (oper_time)
+    KEY idx_oper_time_id (oper_time DESC, id DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='操作日志表';

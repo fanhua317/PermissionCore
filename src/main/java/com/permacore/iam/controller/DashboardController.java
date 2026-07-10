@@ -1,16 +1,18 @@
 package com.permacore.iam.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.permacore.iam.domain.entity.*;
+import com.permacore.iam.domain.entity.SysLoginLogEntity;
+import com.permacore.iam.domain.entity.SysOperLogEntity;
+import com.permacore.iam.domain.vo.DashboardStatsVO;
 import com.permacore.iam.domain.vo.Result;
-import com.permacore.iam.service.*;
+import com.permacore.iam.mapper.DashboardMapper;
+import com.permacore.iam.mapper.SysLoginLogMapper;
+import com.permacore.iam.mapper.SysOperLogMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,12 +25,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    private final UserService userService;
-    private final SysRoleService roleService;
-    private final SysPermissionService permissionService;
-    private final SysDeptService deptService;
-    private final SysLoginLogService loginLogService;
-    private final SysOperLogService operLogService;
+    private static final int RECENT_LOG_LIMIT = 5;
+
+    private final DashboardMapper dashboardMapper;
+    private final SysLoginLogMapper loginLogMapper;
+    private final SysOperLogMapper operLogMapper;
 
     /**
      * 获取统计数据
@@ -36,32 +37,16 @@ public class DashboardController {
     @PreAuthorize("hasAnyAuthority('admin:*','system:user:query','system:role:query','system:permission:query','system:dept:query','system:log:query')")
     @GetMapping("/stats")
     public Result<Map<String, Object>> getStats() {
-        Map<String, Object> stats = new HashMap<>();
-
-        // 用户总数（排除已删除）
-        LambdaQueryWrapper<SysUserEntity> userWrapper = new LambdaQueryWrapper<>();
-        userWrapper.eq(SysUserEntity::getDelFlag, (byte) 0);
-        stats.put("userCount", userService.count(userWrapper));
-
-        // 角色总数
-        stats.put("roleCount", roleService.count());
-
-        // 权限总数
-        stats.put("permissionCount", permissionService.count());
-
-        // 部门总数
-        stats.put("deptCount", deptService.count());
-
-        // 今日登录次数
         LocalDateTime todayStart = LocalDateTime.now().toLocalDate().atStartOfDay();
-        LambdaQueryWrapper<SysLoginLogEntity> loginWrapper = new LambdaQueryWrapper<>();
-        loginWrapper.ge(SysLoginLogEntity::getLoginTime, todayStart);
-        stats.put("todayLoginCount", loginLogService.count(loginWrapper));
+        DashboardStatsVO aggregate = dashboardMapper.selectStats(todayStart);
 
-        // 今日操作次数
-        LambdaQueryWrapper<SysOperLogEntity> operWrapper = new LambdaQueryWrapper<>();
-        operWrapper.ge(SysOperLogEntity::getOperTime, todayStart);
-        stats.put("todayOperCount", operLogService.count(operWrapper));
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("userCount", aggregate.getUserCount());
+        stats.put("roleCount", aggregate.getRoleCount());
+        stats.put("permissionCount", aggregate.getPermissionCount());
+        stats.put("deptCount", aggregate.getDeptCount());
+        stats.put("todayLoginCount", aggregate.getTodayLoginCount());
+        stats.put("todayOperCount", aggregate.getTodayOperCount());
 
         return Result.success(stats);
     }
@@ -72,10 +57,7 @@ public class DashboardController {
     @PreAuthorize("hasAnyAuthority('admin:*','system:log:query')")
     @GetMapping("/recent-logins")
     public Result<List<SysLoginLogEntity>> getRecentLogins() {
-        LambdaQueryWrapper<SysLoginLogEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(SysLoginLogEntity::getLoginTime);
-        Page<SysLoginLogEntity> page = loginLogService.page(new Page<>(1, 5), wrapper);
-        return Result.success(page.getRecords());
+        return Result.success(loginLogMapper.selectRecent(RECENT_LOG_LIMIT));
     }
 
     /**
@@ -84,10 +66,7 @@ public class DashboardController {
     @PreAuthorize("hasAnyAuthority('admin:*','system:log:query')")
     @GetMapping("/recent-operations")
     public Result<List<SysOperLogEntity>> getRecentOperations() {
-        LambdaQueryWrapper<SysOperLogEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(SysOperLogEntity::getOperTime);
-        Page<SysOperLogEntity> page = operLogService.page(new Page<>(1, 5), wrapper);
-        return Result.success(page.getRecords());
+        return Result.success(operLogMapper.selectRecent(RECENT_LOG_LIMIT));
     }
 
     /**
@@ -96,7 +75,7 @@ public class DashboardController {
     @PreAuthorize("hasAuthority('admin:*')")
     @GetMapping("/system-info")
     public Result<Map<String, Object>> getSystemInfo() {
-        Map<String, Object> info = new HashMap<>();
+        Map<String, Object> info = new LinkedHashMap<>();
 
         Runtime runtime = Runtime.getRuntime();
         long totalMemory = runtime.totalMemory() / (1024 * 1024);

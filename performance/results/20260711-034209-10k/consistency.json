@@ -1,0 +1,10 @@
+{
+    "schemaVersion":  1,
+    "capturedAt":  "2026-07-11T03:43:34.9290689+08:00",
+    "crossNodeTokenRead":  200,
+    "mutationOnNodeB":  200,
+    "oldTokenAfterMutationOnNodeA":  401,
+    "oldTokenAfterRemoteLogin":  401,
+    "newTokenAcrossNodes":  200,
+    "passed":  true
+}

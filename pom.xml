@@ -119,6 +119,20 @@
             <version>${spring-boot.version}</version>
         </dependency>
 
+        <!--
+            Runtime metrics support. Every actuator endpoint is disabled in
+            application.yml and Prometheus is enabled only by the perf profile.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- OpenAPI / Swagger (add missing io.swagger.v3.oas.models classes) -->
         <dependency>
             <groupId>org.springdoc</groupId>

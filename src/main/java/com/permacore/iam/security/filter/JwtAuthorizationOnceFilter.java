@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
 import com.permacore.iam.mapper.SysUserMapper;
+import com.permacore.iam.mapper.SysPermissionMapper;
 import com.permacore.iam.domain.entity.SysUserEntity;
 import com.permacore.iam.domain.vo.Result;
 import com.permacore.iam.domain.vo.ResultCode;
@@ -28,7 +29,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -38,10 +41,12 @@ import java.util.stream.Collectors;
 public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthorizationOnceFilter.class);
+    private static final String ADMIN_PERMISSION = "admin:*";
 
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
     private final SysUserMapper userMapper;
+    private final SysPermissionMapper permissionMapper;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -56,14 +61,12 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 
         Claims claims;
         Long userId;
-        List<SimpleGrantedAuthority> authorities;
         try {
             claims = jwtUtil.parseToken(token);
             if (!jwtUtil.isAccessToken(claims)) {
                 throw new IllegalArgumentException("只允许使用 Access Token 访问受保护资源");
             }
             userId = Long.parseLong(claims.getSubject());
-            authorities = resolveAuthorities(claims);
         } catch (JwtException | IllegalArgumentException ex) {
             log.warn("JWT 认证失败: {}", ex.getMessage());
             SecurityContextHolder.clearContext();
@@ -83,17 +86,28 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 
             SysUserEntity authorizationState = userMapper.selectAuthorizationStateById(userId);
             Object tokenAuthVersion = claims.get("authVersion");
+            Object tokenGlobalAuthVersion = claims.get("globalAuthVersion");
             long currentAuthVersion = authorizationState == null || authorizationState.getAuthVersion() == null
                     ? -1L : authorizationState.getAuthVersion();
+            long currentGlobalAuthVersion = authorizationState == null
+                    || authorizationState.getGlobalAuthVersion() == null
+                    ? -1L : authorizationState.getGlobalAuthVersion();
             if (authorizationState == null
                     || !Byte.valueOf((byte) 1).equals(authorizationState.getStatus())
                     || Byte.valueOf((byte) 1).equals(authorizationState.getDelFlag())
                     || !(tokenAuthVersion instanceof Number)
-                    || ((Number) tokenAuthVersion).longValue() != currentAuthVersion) {
+                    || !(tokenGlobalAuthVersion instanceof Number)
+                    || ((Number) tokenAuthVersion).longValue() != currentAuthVersion
+                    || ((Number) tokenGlobalAuthVersion).longValue() != currentGlobalAuthVersion) {
                 log.warn("Token 授权版本失效，userId={}", userId);
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
+            }
+
+            List<SimpleGrantedAuthority> authorities = resolveAuthorities(claims);
+            if (authorities.stream().anyMatch(authority -> ADMIN_PERMISSION.equals(authority.getAuthority()))) {
+                authorities = expandAdminAuthorities(authorities);
             }
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null,
@@ -141,5 +155,20 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
         return permissionList.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
+    }
+
+    private List<SimpleGrantedAuthority> expandAdminAuthorities(List<SimpleGrantedAuthority> tokenAuthorities) {
+        LinkedHashSet<String> authorityKeys = tokenAuthorities.stream()
+                .map(SimpleGrantedAuthority::getAuthority)
+                .filter(authority -> authority != null && !authority.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> enabledPermissionKeys = permissionMapper.selectAllEnabledPermKeys();
+        if (enabledPermissionKeys != null) {
+            enabledPermissionKeys.stream()
+                    .filter(permission -> permission != null && !permission.isBlank())
+                    .forEach(authorityKeys::add);
+        }
+        authorityKeys.add(ADMIN_PERMISSION);
+        return authorityKeys.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
     }
 }
