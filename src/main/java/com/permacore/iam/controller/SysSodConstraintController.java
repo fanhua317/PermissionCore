@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.permacore.iam.domain.entity.SysSodConstraintEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.SodConstraintVO;
 import com.permacore.iam.service.SysSodConstraintService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,8 +16,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import jakarta.validation.Valid;
 
 /**
  * <p>
@@ -96,10 +97,9 @@ public class SysSodConstraintController {
     @Operation(summary = "创建约束", description = "新增SoD约束")
     @PreAuthorize("hasAuthority('sod:add')")
     @PostMapping
-    public Result<Void> create(@RequestBody SysSodConstraintEntity constraint) {
-        constraint.setCreateTime(LocalDateTime.now());
-        sodConstraintService.save(constraint);
-        log.info("创建SoD约束: {}", constraint.getConstraintName());
+    public Result<Void> create(@Valid @RequestBody SodConstraintVO vo) {
+        sodConstraintService.createConstraint(vo);
+        log.info("创建SoD约束: {}", vo.getConstraintName());
         return Result.success();
     }
 
@@ -109,9 +109,8 @@ public class SysSodConstraintController {
     @Operation(summary = "更新约束", description = "更新SoD约束信息")
     @PreAuthorize("hasAuthority('sod:edit')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody SysSodConstraintEntity constraint) {
-        constraint.setId(id);
-        sodConstraintService.updateById(constraint);
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody SodConstraintVO vo) {
+        sodConstraintService.updateConstraint(id, vo);
         log.info("更新SoD约束: id={}", id);
         return Result.success();
     }
@@ -123,7 +122,7 @@ public class SysSodConstraintController {
     @PreAuthorize("hasAuthority('sod:delete')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
-        sodConstraintService.removeById(id);
+        sodConstraintService.deleteConstraint(id);
         log.info("删除SoD约束: id={}", id);
         return Result.success();
     }

@@ -127,7 +127,7 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item v-if="!isEdit" label="密码" prop="password">
-          <el-input v-model="userForm.password" type="password" placeholder="请输入密码" show-password />
+          <el-input v-model="userForm.password" type="password" placeholder="请输入密码" show-password :maxlength="72" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -162,7 +162,7 @@
           <el-input :value="resetPasswordForm.username" disabled />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="resetPasswordForm.newPassword" type="password" show-password />
+          <el-input v-model="resetPasswordForm.newPassword" type="password" show-password :maxlength="72" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -207,7 +207,7 @@ const resetFormRef = ref<FormInstance>();
 const resetPasswordForm = ref({
   id: null as number | null,
   username: '',
-  newPassword: 'Admin@123456',
+  newPassword: '',
 });
 
 const canAdd = computed(() => userStore.hasPermission('user:add'));
@@ -241,14 +241,14 @@ const rules: FormRules = {
   email: [{ type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' },
+    { min: 8, max: 72, message: '密码长度需在 8 到 72 个字符之间', trigger: 'blur' },
   ],
 };
 
 const resetRules: FormRules = {
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' },
+    { min: 8, max: 72, message: '密码长度需在 8 到 72 个字符之间', trigger: 'blur' },
   ],
 };
 
@@ -323,23 +323,31 @@ const handleStatusChange = async (row: any) => {
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定删除该用户吗？', '提示', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete(`/api/user/${id}`);
     ElMessage.success('删除成功');
     getUserList();
-  } catch {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败');
   }
 };
 
 const handleBatchDelete = async () => {
   try {
     await ElMessageBox.confirm(`确定删除选中的 ${selectedUserIds.value.length} 个用户吗？`, '提示', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete('/api/user/batch', { data: selectedUserIds.value });
     ElMessage.success('批量删除成功');
     selectedUserIds.value = [];
     getUserList();
-  } catch {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '批量删除失败');
   }
 };
 
@@ -403,7 +411,7 @@ const openResetPassword = (row: any) => {
   resetPasswordForm.value = {
     id: row.id,
     username: row.username,
-    newPassword: 'Admin@123456',
+    newPassword: '',
   };
   resetPasswordVisible.value = true;
 };
@@ -414,8 +422,8 @@ const handleResetPassword = async () => {
     if (!valid) return;
     submitLoading.value = true;
     try {
-      await request.post(`/api/user/${resetPasswordForm.value.id}/reset-password`, null, {
-        params: { newPassword: resetPasswordForm.value.newPassword },
+      await request.post(`/api/user/${resetPasswordForm.value.id}/reset-password`, {
+        newPassword: resetPasswordForm.value.newPassword,
       });
       ElMessage.success('密码重置成功');
       resetPasswordVisible.value = false;

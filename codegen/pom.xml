@@ -10,8 +10,10 @@
     <name>permacore-iam-codegen</name>
 
     <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
-        <lombok.version>1.18.26</lombok.version>
+        <lombok.version>1.18.46</lombok.version>
     </properties>
 
     <dependencies>
@@ -29,11 +31,6 @@
             <groupId>org.freemarker</groupId>
             <artifactId>freemarker</artifactId>
             <version>2.3.33</version>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>2.2.220</version>
         </dependency>
         <dependency>
             <groupId>com.mysql</groupId>

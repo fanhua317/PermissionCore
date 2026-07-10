@@ -97,7 +97,7 @@
       </el-main>
 
       <el-footer class="footer">
-        <span>PermaCore IAM &copy; 2024 - 基于 RBAC3 的权限管理系统</span>
+        <span>PermaCore IAM &copy; 2024–{{ currentYear }} - 基于 RBAC3 的权限管理系统</span>
       </el-footer>
     </el-container>
 
@@ -117,13 +117,13 @@
     <el-dialog v-model="passwordDialogVisible" title="修改密码" width="400px" destroy-on-close>
       <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
         <el-form-item label="旧密码" prop="oldPassword">
-          <el-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入旧密码" show-password />
+          <el-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入旧密码" show-password :maxlength="72" />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" show-password />
+          <el-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" show-password :maxlength="72" />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password />
+          <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password :maxlength="72" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -153,13 +153,13 @@
             <el-input :value="userStore.userInfo?.username" disabled />
           </el-form-item>
           <el-form-item label="昵称">
-            <el-input v-model="profileForm.nickname" placeholder="请输入昵称" />
+            <el-input v-model="profileForm.nickname" placeholder="请输入昵称" :maxlength="50" />
           </el-form-item>
           <el-form-item label="邮箱">
-            <el-input v-model="profileForm.email" placeholder="请输入邮箱" />
+            <el-input v-model="profileForm.email" placeholder="请输入邮箱" :maxlength="100" />
           </el-form-item>
           <el-form-item label="手机号">
-            <el-input v-model="profileForm.phone" placeholder="请输入手机号" />
+            <el-input v-model="profileForm.phone" placeholder="请输入手机号" :maxlength="20" />
           </el-form-item>
         </el-form>
       </div>
@@ -198,21 +198,22 @@ import {
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const currentYear = new Date().getFullYear();
 
 const isCollapse = ref(false);
 const userAvatar = ref('');
 
 const allSystemMenus = [
-  { path: '/user', title: '用户管理', permission: 'system:user', icon: User },
-  { path: '/role', title: '角色管理', permission: 'system:role', icon: UserFilled },
-  { path: '/permission', title: '权限管理', permission: 'system:permission', icon: Key },
-  { path: '/sod', title: '职责分离', permission: 'system:sod', icon: Lock },
-  { path: '/dept', title: '部门管理', permission: 'system:dept', icon: OfficeBuilding },
+  { path: '/user', title: '用户管理', permission: 'system:user:query', icon: User },
+  { path: '/role', title: '角色管理', permission: 'system:role:query', icon: UserFilled },
+  { path: '/permission', title: '权限管理', permission: 'system:permission:query', icon: Key },
+  { path: '/sod', title: '职责分离', permission: 'system:sod:query', icon: Lock },
+  { path: '/dept', title: '部门管理', permission: 'system:dept:query', icon: OfficeBuilding },
 ];
 
 const allAuditMenus = [
-  { path: '/login-log', title: '登录日志', permission: 'system:log', icon: Tickets },
-  { path: '/oper-log', title: '操作日志', permission: 'system:log', icon: List },
+  { path: '/login-log', title: '登录日志', permission: 'system:log:query', icon: Tickets },
+  { path: '/oper-log', title: '操作日志', permission: 'system:log:query', icon: List },
 ];
 
 const systemMenus = computed(() => allSystemMenus.filter((item) => userStore.hasPermission(item.permission)));
@@ -261,10 +262,13 @@ const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
 };
 
 const passwordRules: FormRules = {
-  oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
+  oldPassword: [
+    { required: true, message: '请输入旧密码', trigger: 'blur' },
+    { max: 72, message: '旧密码长度不能超过72位', trigger: 'blur' },
+  ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' },
+    { min: 8, max: 72, message: '密码长度需在8到72位之间', trigger: 'blur' },
   ],
   confirmPassword: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
@@ -312,16 +316,23 @@ const handleCommand = async (command: string) => {
     case 'password':
       openPasswordDialog();
       break;
-    case 'logout':
+    case 'logout': {
       try {
         await ElMessageBox.confirm('确定要退出登录吗？', '提示', { type: 'warning' });
+      } catch {
+        break;
+      }
+
+      try {
         await userStore.logout();
-        router.push('/login');
         ElMessage.success('退出成功');
       } catch {
-        // 用户取消
+        ElMessage.warning('服务端退出失败，本地登录状态已清除');
+      } finally {
+        await router.replace('/login');
       }
       break;
+    }
   }
 };
 
@@ -342,8 +353,8 @@ const handleChangePassword = async () => {
       });
       ElMessage.success('密码修改成功，请重新登录');
       passwordDialogVisible.value = false;
-      await userStore.logout();
-      router.push('/login');
+      await userStore.logout().catch(() => undefined);
+      await router.replace('/login');
     } catch (error: any) {
       ElMessage.error(error?.message || '修改密码失败');
     } finally {
@@ -401,7 +412,10 @@ const uploadAvatar = async (options: any) => {
     });
     if (res?.avatarUrl) {
       userAvatar.value = res.avatarUrl;
-      localStorage.setItem('userAvatar', res.avatarUrl);
+      const storageKey = getAvatarStorageKey();
+      if (storageKey) {
+        localStorage.setItem(storageKey, res.avatarUrl);
+      }
       ElMessage.success('头像上传成功');
     }
   } catch (error: any) {
@@ -409,8 +423,15 @@ const uploadAvatar = async (options: any) => {
   }
 };
 
+const getAvatarStorageKey = () => {
+  const userId = userStore.userInfo?.userId;
+  return userId == null ? null : `userAvatar:${userId}`;
+};
+
 onMounted(() => {
-  const savedAvatar = localStorage.getItem('userAvatar');
+  localStorage.removeItem('userAvatar');
+  const storageKey = getAvatarStorageKey();
+  const savedAvatar = storageKey ? localStorage.getItem(storageKey) : null;
   if (savedAvatar) {
     userAvatar.value = savedAvatar;
   }

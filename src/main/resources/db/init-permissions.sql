@@ -1,5 +1,5 @@
 -- PermaCore IAM 初始化脚本
--- 可重复执行：补齐默认部门、角色、权限、RBAC3 继承关系、SoD 约束，并将 admin 绑定为超级管理员。
+-- 可重复执行：补齐默认部门、角色、权限、RBAC3 继承关系与 SoD 约束；不创建或绑定管理员账号。
 
 USE permacore_iam;
 
@@ -52,52 +52,55 @@ FROM DUAL WHERE @dept_tech_id IS NOT NULL
 AND NOT EXISTS (SELECT 1 FROM sys_dept WHERE parent_id = @dept_tech_id AND dept_name = '测试组');
 
 -- ============================================================
--- 2. 默认管理员和角色
+-- 2. 默认角色（管理员账号由显式 bootstrap 创建）
 -- ============================================================
-INSERT INTO sys_user (username, password, nickname, status, create_time)
-SELECT 'admin', '$2a$10$lNXvCutfulLhh7VjGB1cou98Omd/UpEVMtRaX5cMZzNpaYBcg8q4W', '超级管理员', 1, NOW()
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'admin');
-
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
 SELECT 'ROLE_ADMIN', '超级管理员', 1, 0, 1, '拥有所有权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_ADMIN');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_MANAGER', '部门经理', 2, 5, 1, '部门级管理权限，继承普通用户权限', NOW()
+SELECT 'ROLE_MANAGER', '部门经理', 1, 5, 1, '部门级管理权限，继承普通用户权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_MANAGER');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_HR', '人力资源', 2, 6, 1, '人事管理权限', NOW()
+SELECT 'ROLE_HR', '人力资源', 1, 6, 1, '人事管理权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_HR');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_AUDITOR', '审计员', 2, 7, 1, '只读审计权限', NOW()
+SELECT 'ROLE_AUDITOR', '审计员', 1, 7, 1, '只读审计权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_AUDITOR');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_DEVELOPER', '开发人员', 2, 8, 1, '开发相关权限，继承普通用户权限', NOW()
+SELECT 'ROLE_DEVELOPER', '开发人员', 1, 8, 1, '开发相关权限，继承普通用户权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_DEVELOPER');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_FINANCE', '财务人员', 2, 9, 1, '财务相关权限', NOW()
+SELECT 'ROLE_FINANCE', '财务人员', 1, 9, 1, '财务相关权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_FINANCE');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_USER', '普通用户', 2, 10, 1, '基础查询权限', NOW()
+SELECT 'ROLE_USER', '普通用户', 1, 10, 1, '基础查询权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_USER');
 
 INSERT INTO sys_role (role_key, role_name, role_type, sort_order, status, remark, create_time)
-SELECT 'ROLE_GUEST', '访客', 2, 20, 1, '最小只读权限', NOW()
+SELECT 'ROLE_GUEST', '访客', 1, 20, 1, '最小只读权限', NOW()
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_key = 'ROLE_GUEST');
 
-SET @role_admin_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_ADMIN' LIMIT 1);
-SET @role_manager_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_MANAGER' LIMIT 1);
-SET @role_hr_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_HR' LIMIT 1);
-SET @role_auditor_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_AUDITOR' LIMIT 1);
-SET @role_developer_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_DEVELOPER' LIMIT 1);
-SET @role_finance_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_FINANCE' LIMIT 1);
-SET @role_user_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_USER' LIMIT 1);
-SET @role_guest_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_GUEST' LIMIT 1);
+UPDATE sys_role
+SET role_type = 1, del_flag = 0
+WHERE role_key IN (
+  'ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_HR', 'ROLE_AUDITOR',
+  'ROLE_DEVELOPER', 'ROLE_FINANCE', 'ROLE_USER', 'ROLE_GUEST'
+);
+
+SET @role_admin_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_ADMIN' AND del_flag = 0 LIMIT 1);
+SET @role_manager_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_MANAGER' AND del_flag = 0 LIMIT 1);
+SET @role_hr_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_HR' AND del_flag = 0 LIMIT 1);
+SET @role_auditor_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_AUDITOR' AND del_flag = 0 LIMIT 1);
+SET @role_developer_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_DEVELOPER' AND del_flag = 0 LIMIT 1);
+SET @role_finance_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_FINANCE' AND del_flag = 0 LIMIT 1);
+SET @role_user_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_USER' AND del_flag = 0 LIMIT 1);
+SET @role_guest_id = (SELECT id FROM sys_role WHERE role_key = 'ROLE_GUEST' AND del_flag = 0 LIMIT 1);
 
 -- ============================================================
 -- 3. 权限：resource_type 统一为 1=菜单, 2=按钮, 3=API
@@ -198,9 +201,16 @@ SELECT 'system:log:query', '日志查询', 2, 0, @perm_log_menu, 1, 1, NOW() FRO
 INSERT INTO sys_permission (perm_key, perm_name, resource_type, resource_id, parent_id, sort_order, status, create_time)
 SELECT 'log:delete', '日志删除', 2, 0, @perm_log_menu, 2, 1, NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_permission WHERE perm_key = 'log:delete');
 
--- 修正旧库中可能存在的 resource_type / parent_id 失配
+-- 仅修正本脚本管理的内置权限，绝不改写用户自建 API/按钮权限
 UPDATE sys_permission SET resource_type = 1 WHERE perm_key IN ('system:user', 'system:role', 'system:permission', 'system:sod', 'system:dept', 'system:log');
-UPDATE sys_permission SET resource_type = 2 WHERE perm_key NOT IN ('system:user', 'system:role', 'system:permission', 'system:sod', 'system:dept', 'system:log') AND perm_key <> 'admin:*';
+UPDATE sys_permission SET resource_type = 2 WHERE perm_key IN (
+  'system:user:query', 'user:add', 'user:edit', 'user:delete', 'user:assignRole', 'user:resetPassword',
+  'system:role:query', 'role:add', 'role:edit', 'role:delete', 'role:assignPermission', 'role:setInheritance',
+  'system:permission:query', 'permission:add', 'permission:edit', 'permission:delete',
+  'system:sod:query', 'sod:add', 'sod:edit', 'sod:delete',
+  'system:dept:query', 'dept:add', 'dept:edit', 'dept:delete',
+  'system:log:query', 'log:delete'
+);
 
 -- ============================================================
 -- 4. 角色权限、继承与 SoD
@@ -213,26 +223,24 @@ AND NOT EXISTS (
   SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = @role_admin_id AND rp.permission_id = p.id
 );
 
-INSERT INTO sys_role_permission (role_id, permission_id, create_time)
-SELECT @role_user_id, p.id, NOW()
-FROM sys_permission p
-WHERE p.perm_key LIKE '%:query'
-AND NOT EXISTS (
-  SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = @role_user_id AND rp.permission_id = p.id
-);
-
-INSERT INTO sys_role_permission (role_id, permission_id, create_time)
-SELECT @role_guest_id, p.id, NOW()
-FROM sys_permission p
-WHERE p.perm_key IN ('system:user:query', 'system:role:query', 'system:permission:query')
-AND NOT EXISTS (
-  SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = @role_guest_id AND rp.permission_id = p.id
-);
+-- 普通用户和访客只使用无需管理权限的本人会话接口，不默认获得后台目录、组织或日志读取能力。
+-- 只撤销旧初始化脚本曾自动授予的已知基线项；其他历史/自定义授权仍交由权限负责人审阅。
+DELETE rp
+FROM sys_role_permission rp
+INNER JOIN sys_permission p ON p.id = rp.permission_id
+WHERE rp.role_id IN (@role_user_id, @role_guest_id)
+  AND p.perm_key IN (
+    'system:user:query', 'system:role:query', 'system:permission:query',
+    'system:sod:query', 'system:dept:query', 'system:log:query'
+  );
 
 INSERT INTO sys_role_permission (role_id, permission_id, create_time)
 SELECT @role_auditor_id, p.id, NOW()
 FROM sys_permission p
-WHERE (p.perm_key LIKE '%:query' OR p.perm_key LIKE 'system:log%')
+WHERE p.perm_key IN (
+  'system:user:query', 'system:role:query', 'system:permission:query',
+  'system:sod:query', 'system:dept:query', 'system:log', 'system:log:query'
+)
 AND NOT EXISTS (
   SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = @role_auditor_id AND rp.permission_id = p.id
 );
@@ -262,16 +270,38 @@ SELECT '经理与HR动态互斥', CONCAT('[', @role_manager_id, ',', @role_hr_id
 FROM DUAL WHERE @role_manager_id IS NOT NULL AND @role_hr_id IS NOT NULL
 AND NOT EXISTS (SELECT 1 FROM sys_sod_constraint WHERE constraint_name = '经理与HR动态互斥');
 
-SET @admin_user_id = (SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1);
+-- 任何既有用户若违反 SSD，使用 CHECK 守卫让脚本失败并回滚，禁止把脏分配静默带入新基线。
+CREATE TEMPORARY TABLE permacore_ssd_guard (
+  ok TINYINT NOT NULL,
+  CONSTRAINT chk_permacore_ssd_guard CHECK (ok = 1)
+) ENGINE=InnoDB;
 
-INSERT INTO sys_user_role (user_id, role_id, create_time)
-SELECT @admin_user_id, @role_admin_id, NOW()
-FROM DUAL
-WHERE @admin_user_id IS NOT NULL
-  AND @role_admin_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM sys_user_role ur WHERE ur.user_id = @admin_user_id AND ur.role_id = @role_admin_id
-  );
+INSERT INTO permacore_ssd_guard (ok)
+WITH RECURSIVE role_closure AS (
+  SELECT ur.user_id, ur.role_id
+  FROM sys_user_role ur
+  INNER JOIN sys_user u ON u.id = ur.user_id AND u.del_flag = 0
+  UNION DISTINCT
+  SELECT rc.user_id, ri.ancestor_id
+  FROM role_closure rc
+  INNER JOIN sys_role_inheritance ri ON ri.descendant_id = rc.role_id
+), ssd_violations AS (
+  SELECT rc.user_id, sc.id AS constraint_id
+  FROM role_closure rc
+  INNER JOIN sys_sod_constraint sc ON sc.constraint_type = 1
+  INNER JOIN JSON_TABLE(
+    sc.role_set,
+    '$[*]' COLUMNS (role_id BIGINT PATH '$')
+  ) roles_in_constraint ON roles_in_constraint.role_id = rc.role_id
+  GROUP BY rc.user_id, sc.id
+  HAVING COUNT(DISTINCT rc.role_id) >= 2
+)
+SELECT CASE WHEN EXISTS (SELECT 1 FROM ssd_violations) THEN 0 ELSE 1 END;
+
+DROP TEMPORARY TABLE permacore_ssd_guard;
+
+-- RBAC 基线可能改变有效权限；持久递增后，所有旧 access/refresh token 都会立即失效。
+UPDATE sys_user SET auth_version = auth_version + 1 WHERE del_flag = 0;
 
 COMMIT;
 

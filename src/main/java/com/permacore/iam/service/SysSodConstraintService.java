@@ -2,6 +2,7 @@ package com.permacore.iam.service;
 
 import com.permacore.iam.domain.entity.SysSodConstraintEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.permacore.iam.domain.vo.SodConstraintVO;
 
 /**
  * <p>
@@ -13,4 +14,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface SysSodConstraintService extends IService<SysSodConstraintEntity> {
 
+    void createConstraint(SodConstraintVO vo);
+
+    void updateConstraint(Long id, SodConstraintVO vo);
+
+    void deleteConstraint(Long id);
 }

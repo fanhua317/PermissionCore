@@ -5,6 +5,8 @@ import com.permacore.iam.annotation.OperLog;
 import com.permacore.iam.domain.entity.SysRoleEntity;
 import com.permacore.iam.domain.vo.PageVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.RoleUpsertVO;
+import com.permacore.iam.domain.vo.RoleUpdateVO;
 import com.permacore.iam.service.SysRoleInheritanceService;
 import com.permacore.iam.service.SysRoleService;
 
@@ -13,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import org.slf4j.Logger;
@@ -62,7 +65,14 @@ public class RoleController {
     @OperLog(title = "创建角色", businessType = 1)
     @PreAuthorize("hasAuthority('role:add')")
     @PostMapping
-    public Result<Void> create(@RequestBody SysRoleEntity role) {
+    public Result<Void> create(@Valid @RequestBody RoleUpsertVO vo) {
+        SysRoleEntity role = new SysRoleEntity();
+        role.setRoleKey(vo.getRoleKey());
+        role.setRoleName(vo.getRoleName());
+        role.setRemark(vo.getRemark());
+        role.setStatus(vo.getStatus() == null ? (byte) 1 : vo.getStatus().byteValue());
+        role.setSortOrder(vo.getSortOrder() == null ? 0 : vo.getSortOrder());
+        role.setRoleType((byte) 2);
         roleService.saveRole(role);
         log.info("创建角色: {}", role.getRoleName());
         return Result.success();
@@ -75,8 +85,21 @@ public class RoleController {
     @OperLog(title = "更新角色", businessType = 2)
     @PreAuthorize("hasAuthority('role:edit')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody SysRoleEntity role) {
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody RoleUpdateVO vo) {
+        SysRoleEntity role = new SysRoleEntity();
         role.setId(id);
+        if (vo.getRoleName() != null) {
+            role.setRoleName(vo.getRoleName());
+        }
+        if (vo.getRemark() != null) {
+            role.setRemark(vo.getRemark());
+        }
+        if (vo.getStatus() != null) {
+            role.setStatus(vo.getStatus().byteValue());
+        }
+        if (vo.getSortOrder() != null) {
+            role.setSortOrder(vo.getSortOrder());
+        }
         roleService.updateRole(role);
         log.info("更新角色: roleId={}", id);
         return Result.success();
@@ -115,7 +138,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('role:assignPermission')")
     @PutMapping("/{roleId}/permissions")
     public Result<Void> updatePermissions(@PathVariable Long roleId,
-            @RequestBody com.permacore.iam.domain.vo.AssignPermissionsVO vo) {
+            @jakarta.validation.Valid @RequestBody com.permacore.iam.domain.vo.AssignPermissionsVO vo) {
         roleService.assignPermissions(roleId, vo.getPermissionIds());
         log.info("更新权限: roleId={}, permissions={}", roleId, vo.getPermissionIds());
         return Result.success();

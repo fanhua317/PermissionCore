@@ -1,6 +1,9 @@
 package com.permacore.iam.aspect;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.permacore.iam.annotation.OperLog;
 import com.permacore.iam.domain.entity.SysOperLogEntity;
 import com.permacore.iam.domain.entity.SysUserEntity;
@@ -22,6 +25,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 操作日志AOP切面
@@ -31,6 +37,8 @@ import java.time.LocalDateTime;
 public class OperLogAspect {
 
     private static final Logger log = LoggerFactory.getLogger(OperLogAspect.class);
+    private static final Set<String> SENSITIVE_FIELD_PARTS = Set.of(
+            "password", "passwd", "pwd", "token", "secret", "authorization");
     
     private final SysOperLogService operLogService;
     private final JwtUtil jwtUtil;
@@ -176,7 +184,9 @@ public class OperLogAspect {
             if (operLog.isSaveRequestData()) {
                 try {
                     Object[] args = joinPoint.getArgs();
-                    String params = objectMapper.writeValueAsString(args);
+                    JsonNode paramsTree = objectMapper.valueToTree(args);
+                    redactSensitiveFields(paramsTree);
+                    String params = objectMapper.writeValueAsString(paramsTree);
                     if (params.length() > 2000) {
                         params = params.substring(0, 2000) + "...";
                     }
@@ -223,20 +233,24 @@ public class OperLogAspect {
      * 获取客户端IP地址
      */
     private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
+        return request.getRemoteAddr();
+    }
+
+    private void redactSensitiveFields(JsonNode node) {
+        if (node instanceof ObjectNode objectNode) {
+            Iterator<Map.Entry<String, JsonNode>> fields = objectNode.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                String normalizedName = field.getKey().toLowerCase();
+                if (SENSITIVE_FIELD_PARTS.stream().anyMatch(normalizedName::contains)) {
+                    objectNode.put(field.getKey(), "[REDACTED]");
+                } else {
+                    redactSensitiveFields(field.getValue());
+                }
+            }
+        } else if (node instanceof ArrayNode arrayNode) {
+            arrayNode.forEach(this::redactSensitiveFields);
         }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        return ip;
     }
     
     /**

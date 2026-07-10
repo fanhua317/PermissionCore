@@ -3,14 +3,12 @@ package com.permacore.iam.service.impl;
 import com.permacore.iam.mapper.SysPermissionMapper;
 import com.permacore.iam.mapper.SysRoleInheritanceMapper;
 import com.permacore.iam.mapper.SysRolePermissionMapper;
-import com.permacore.iam.mapper.SysUserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -21,17 +19,9 @@ public class PermissionService {
 
     private static final String ADMIN_PERMISSION = "admin:*";
 
-    private final SysUserRoleMapper userRoleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysPermissionMapper permissionMapper;
     private final SysRoleInheritanceMapper roleInheritanceMapper;
-
-    public Set<String> getUserPermissions(Long userId) {
-        List<Long> roleIdList = userRoleMapper.selectRoleIdsByUserId(userId);
-        Set<Long> directRoleIds = roleIdList != null ? new HashSet<>(roleIdList) : new HashSet<>();
-        Set<Long> roleIds = getRoleIdsWithInheritance(directRoleIds);
-        return getPermissionsByRoleIds(roleIds);
-    }
 
     public Set<String> getPermissionsByRoleIds(Set<Long> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
@@ -47,13 +37,13 @@ public class PermissionService {
         return expandAdminPermission(permissions);
     }
 
-    public Set<Long> getRoleIdsWithInheritance(Collection<Long> directRoleIds) {
+    public Set<Long> getPotentialRoleIdsWithInheritance(Collection<Long> directRoleIds) {
         Set<Long> roleIds = directRoleIds != null ? new HashSet<>(directRoleIds) : new HashSet<>();
         if (roleIds.isEmpty()) {
             return roleIds;
         }
 
-        Set<Long> inheritedRoleIds = roleInheritanceMapper.selectAncestorIdsByDescendantIds(roleIds);
+        Set<Long> inheritedRoleIds = roleInheritanceMapper.selectAllAncestorIdsByDescendantIds(roleIds);
         if (inheritedRoleIds != null && !inheritedRoleIds.isEmpty()) {
             roleIds.addAll(inheritedRoleIds);
         }

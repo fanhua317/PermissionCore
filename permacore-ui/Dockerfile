@@ -2,8 +2,11 @@
 # PermaCore UI 前端 Dockerfile（多阶段构建）
 # ============================================================
 
+ARG NODE_IMAGE=node:22.23.1-alpine3.24
+ARG NGINX_IMAGE=nginx:1.30.3-alpine
+
 # ---------- 第一阶段：Node 构建 ----------
-FROM node:20-alpine AS builder
+FROM ${NODE_IMAGE} AS builder
 
 WORKDIR /build
 
@@ -16,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # ---------- 第二阶段：Nginx 运行 ----------
-FROM nginx:alpine
+FROM ${NGINX_IMAGE}
 
 # 移除默认配置
 RUN rm /etc/nginx/conf.d/default.conf

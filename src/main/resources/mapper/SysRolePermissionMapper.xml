@@ -29,6 +29,13 @@
         DELETE FROM sys_role_permission WHERE role_id = #{roleId}
     </delete>
 
+    <delete id="deleteByPermissionIds">
+        DELETE FROM sys_role_permission WHERE permission_id IN
+        <foreach item="permissionId" collection="permissionIds" open="(" separator="," close=")">
+            #{permissionId}
+        </foreach>
+    </delete>
+
     <!-- 批量插入 -->
     <insert id="insertBatch">
         INSERT INTO sys_role_permission (role_id, permission_id) VALUES

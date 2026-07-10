@@ -11,7 +11,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>PermaCore IAM</name>
-    <description>企业级RBAC3权限管理系统</description>
+    <description>企业级 RBAC3 权限管理系统</description>
 
     <!-- Removed <modules> section so top-level sources under src/main/java will be compiled and packaged -->
 
@@ -24,13 +24,11 @@
         <!-- 升级到兼容Spring Boot 3.2.x的最新版 -->
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jwt.version>0.12.5</jwt.version>
-        <redisson.version>3.32.0</redisson.version>
-        <hutool.version>5.8.28</hutool.version>
         <!-- 明确版本，避免父POM不可用或镜像问题导致解析失败 -->
         <caffeine.version>3.1.8</caffeine.version>
         <lombok.version>1.18.46</lombok.version>
         <!-- Spring Boot version used for explicit dependency/plugin versions -->
-        <spring-boot.version>3.2.9</spring-boot.version>
+        <spring-boot.version>3.2.12</spring-boot.version>
         <!-- keep spring-boot.version defined above -->
     </properties>
 
@@ -61,13 +59,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <version>${spring-boot.version}</version>
-            <exclusions>
-                <!-- 排除有漏洞的tomcat版本 -->
-                <exclusion>
-                    <groupId>org.apache.tomcat.embed</groupId>
-                    <artifactId>tomcat-embed-websocket</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <!-- Security核心 -->
@@ -84,11 +75,10 @@
             <version>${spring-boot.version}</version>
         </dependency>
 
-        <!-- Swagger annotations (用于@ApiModel, @ApiModelProperty) -->
         <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-annotations</artifactId>
-            <version>1.6.8</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <!-- JWT -->
@@ -115,20 +105,6 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
 
-        <!-- Ensure a single mybatis-plus extension/core version is used (avoid transitive conflicts) -->
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-extension</artifactId>
-            <version>${mybatis-plus.version}</version>
-        </dependency>
-
-        <!-- Explicit core dependency to guarantee a single version on the compile classpath -->
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-core</artifactId>
-            <version>${mybatis-plus.version}</version>
-        </dependency>
-
         <!-- MySQL驱动 -->
         <dependency>
             <groupId>com.mysql</groupId>
@@ -136,25 +112,11 @@
             <version>8.3.0</version>
         </dependency>
 
-        <!-- Redis高级客户端 -->
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson-spring-boot-starter</artifactId>
-            <version>${redisson.version}</version>
-        </dependency>
-
         <!-- Redis (Spring Data Redis) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
             <version>${spring-boot.version}</version>
-        </dependency>
-
-        <!-- Hutool工具库 -->
-        <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>${hutool.version}</version>
         </dependency>
 
         <!-- OpenAPI / Swagger (add missing io.swagger.v3.oas.models classes) -->
@@ -177,24 +139,12 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
-        <!-- AspectJ 支持（切面注解） -->
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjweaver</artifactId>
-            <version>1.9.9.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjrt</artifactId>
-            <version>1.9.9.1</version>
-        </dependency>
-
         <!-- Lombok（只在编译/IDE生效） -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
-            <scope>compile</scope>
+            <scope>provided</scope>
         </dependency>
 
         <!-- 测试 -->
@@ -246,17 +196,10 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Exec plugin to run the code generator during generate-sources -->
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
-                <!-- Removed automatic execution bound to lifecycle because the generator
-                     class is part of the project and must be compiled before running.
-                     Run it manually with: mvn -DskipTests compile exec:java -Dexec.mainClass=com.permacore.codegen.CodeGeneratorMain -->
-                <configuration>
-                    <mainClass>com.permacore.codegen.CodeGeneratorMain</mainClass>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
             </plugin>
         </plugins>
     </build>

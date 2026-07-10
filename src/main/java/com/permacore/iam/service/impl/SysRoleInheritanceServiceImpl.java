@@ -16,6 +16,7 @@ import com.permacore.iam.mapper.SysUserRoleMapper;
 import com.permacore.iam.security.handler.BusinessException;
 import com.permacore.iam.service.SysRoleInheritanceService;
 import com.permacore.iam.service.SysSodConstraintService;
+import com.permacore.iam.service.AuthorizationStateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,10 +54,12 @@ public class SysRoleInheritanceServiceImpl extends ServiceImpl<SysRoleInheritanc
     private final SysUserMapper userMapper;
     private final SysSodConstraintService sodConstraintService;
     private final ObjectMapper objectMapper;
+    private final AuthorizationStateService authorizationStateService;
 
     @Override
     @Transactional
     public void updateParentRoles(Long roleId, List<Long> parentRoleIds) {
+        roleMapper.lockAllRoleIds();
         if (roleId == null) {
             throw new BusinessException("角色ID不能为空");
         }
@@ -83,12 +86,14 @@ public class SysRoleInheritanceServiceImpl extends ServiceImpl<SysRoleInheritanc
             inheritance.setDepth(1);
             roleInheritanceMapper.insert(inheritance);
         }
+        authorizationStateService.invalidateAllUsers();
         log.info("角色继承更新完成: roleId={}, parents={}", roleId, normalizedParentIds);
     }
 
     @Override
     @Transactional
     public void addInheritance(Long childId, Long parentId) {
+        roleMapper.lockAllRoleIds();
         List<Long> parents = getDirectParentIds(childId);
         if (parentId != null && !parents.contains(parentId)) {
             parents.add(parentId);
@@ -99,6 +104,7 @@ public class SysRoleInheritanceServiceImpl extends ServiceImpl<SysRoleInheritanc
     @Override
     @Transactional
     public void removeInheritance(Long childId, Long parentId) {
+        roleMapper.lockAllRoleIds();
         List<Long> parents = getDirectParentIds(childId).stream()
                 .filter(id -> !Objects.equals(id, parentId))
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -275,10 +281,10 @@ public class SysRoleInheritanceServiceImpl extends ServiceImpl<SysRoleInheritanc
             return objectMapper.readValue(
                     constraint.getRoleSet(),
                     new TypeReference<List<Long>>() {
-                    });
+                    }).stream().filter(Objects::nonNull).distinct().toList();
         } catch (Exception e) {
-            log.warn("解析SSD约束失败: constraintId={}, roleSet={}", constraint.getId(), constraint.getRoleSet());
-            return List.of();
+            log.error("解析SSD约束失败: constraintId={}", constraint.getId(), e);
+            throw new BusinessException("SoD约束配置无效: " + constraint.getId());
         }
     }
 }

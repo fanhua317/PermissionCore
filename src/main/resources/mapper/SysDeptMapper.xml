@@ -25,4 +25,8 @@
         id, parent_id, dept_name, dept_path, leader_id, phone, email, sort_order, status, create_by, create_time, update_by, update_time, del_flag
     </sql>
 
+    <select id="lockAllDeptIds" resultType="java.lang.Long">
+        SELECT id FROM sys_dept ORDER BY id FOR UPDATE
+    </select>
+
 </mapper>

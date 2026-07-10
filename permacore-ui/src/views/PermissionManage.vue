@@ -108,9 +108,6 @@
             <el-radio :value="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="permForm.remark" type="textarea" :rows="2" placeholder="请输入备注" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -152,7 +149,6 @@ const emptyForm = () => ({
   type: 'MENU',
   orderNum: 0,
   status: 1,
-  remark: '',
 });
 
 const permForm = ref(emptyForm());
@@ -161,13 +157,23 @@ const rules: FormRules = {
   permName: [{ required: true, message: '请输入权限名称', trigger: 'blur' }],
   permCode: [
     { required: true, message: '请输入权限编码', trigger: 'blur' },
-    { pattern: /^[a-z:_]+$/, message: '权限编码只能包含小写字母、冒号和下划线', trigger: 'blur' },
+    { pattern: /^[A-Za-z][A-Za-z0-9_]*(?::(?:[A-Za-z][A-Za-z0-9_]*|\*))*$/, message: '权限编码格式不正确，例如 user:add 或 admin:*', trigger: 'blur' },
   ],
   type: [{ required: true, message: '请选择权限类型', trigger: 'change' }],
 };
 
+const excludePermissionSubtree = (nodes: any[], excludedId: number): any[] =>
+  nodes.flatMap((node) => {
+    if (node.id === excludedId) return [];
+    return [{ ...node, children: excludePermissionSubtree(node.children ?? [], excludedId) }];
+  });
+
 const permissionTreeForSelect = computed(() => {
-  const addRoot = [{ id: 0, permName: '根节点', children: permissionTree.value }];
+  const excludedId = isEdit.value ? permForm.value.id : null;
+  const selectableTree = excludedId === null
+    ? permissionTree.value
+    : excludePermissionSubtree(permissionTree.value, excludedId);
+  const addRoot = [{ id: 0, permName: '根节点', children: selectableTree }];
   return addRoot;
 });
 
@@ -186,8 +192,7 @@ const getPermissionTree = async () => {
   try {
     const res: any = await request.get('/api/permission/tree');
     permissionTree.value = res ?? [];
-  } catch (error) {
-    console.error('Failed to get permission tree:', error);
+  } catch {
     ElMessage.error('获取权限列表失败');
   } finally {
     loading.value = false;
@@ -235,11 +240,15 @@ const handleEdit = (row: any) => {
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定删除该权限吗？如有子权限将一并删除。', '提示', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete(`/api/permission/${id}`);
     ElMessage.success('删除成功');
     getPermissionTree();
-  } catch (error) {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败');
   }
 };
 

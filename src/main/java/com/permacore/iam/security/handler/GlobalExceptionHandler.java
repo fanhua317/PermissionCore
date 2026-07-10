@@ -6,15 +6,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
+import jakarta.validation.ConstraintViolationException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.stream.Collectors;
 
@@ -31,9 +37,10 @@ public class GlobalExceptionHandler {
      * 处理业务异常
      */
     @ExceptionHandler(BusinessException.class)
-    public Result<Void> handleBusinessException(BusinessException e) {
+    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
-        return Result.error(e.getCode(), e.getMessage());
+        return ResponseEntity.status(resolveHttpStatus(e.getCode()))
+                .body(Result.error(e.getCode(), e.getMessage()));
     }
 
     /**
@@ -58,6 +65,22 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         log.warn("参数校验失败: {}", errorMsg);
         return Result.error(ResultCode.BAD_REQUEST, errorMsg);
+    }
+
+    /**
+     * 处理请求体无法解析、查询参数绑定失败等客户端输入错误。
+     */
+    @ExceptionHandler({
+            HttpMessageNotReadableException.class,
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class,
+            BindException.class,
+            ConstraintViolationException.class
+    })
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<Void> handleBadRequest(Exception e) {
+        log.warn("请求参数格式错误: {}", e.getClass().getSimpleName());
+        return Result.error(ResultCode.BAD_REQUEST, "请求参数格式错误");
     }
 
     /**
@@ -91,5 +114,19 @@ public class GlobalExceptionHandler {
     public Result<Void> handleException(Exception e) {
         log.error("系统异常: ", e);
         return Result.error(ResultCode.ERROR);
+    }
+
+    private HttpStatus resolveHttpStatus(Integer code) {
+        if (code == null) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        return switch (code) {
+            case 401 -> HttpStatus.UNAUTHORIZED;
+            case 403, 1003 -> HttpStatus.FORBIDDEN;
+            case 404, 1002 -> HttpStatus.NOT_FOUND;
+            case 500 -> HttpStatus.INTERNAL_SERVER_ERROR;
+            case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.BAD_REQUEST;
+        };
     }
 }

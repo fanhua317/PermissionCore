@@ -65,7 +65,7 @@ class RoleSessionServiceImplTest {
                 role(2L, "ROLE_HR", "HR", 2)));
         when(roleInheritanceMapper.selectAncestorIdsByDescendantIds(anySet())).thenReturn(Set.of());
         when(sodConstraintService.list(org.mockito.ArgumentMatchers.<Wrapper<SysSodConstraintEntity>>any()))
-                .thenReturn(List.of(sod(10L, "经理与HR动态互斥", "[1,2]", (byte) 2)));
+                .thenReturn(List.of(), List.of(sod(10L, "经理与HR动态互斥", "[1,2]", (byte) 2)));
         when(roleMapper.selectBatchIds(anySet())).thenReturn(List.of(role(1L, "ROLE_MANAGER", "经理", 1),
                 role(2L, "ROLE_HR", "HR", 2)));
 
@@ -81,7 +81,7 @@ class RoleSessionServiceImplTest {
                 role(2L, "ROLE_HR", "HR", 2)));
         when(roleInheritanceMapper.selectAncestorIdsByDescendantIds(anySet())).thenReturn(Set.of());
         when(sodConstraintService.list(org.mockito.ArgumentMatchers.<Wrapper<SysSodConstraintEntity>>any()))
-                .thenReturn(List.of(sod(10L, "经理与HR动态互斥", "[1,2]", (byte) 2)));
+                .thenReturn(List.of(), List.of(sod(10L, "经理与HR动态互斥", "[1,2]", (byte) 2)));
         when(roleMapper.selectBatchIds(anySet())).thenReturn(List.of(role(1L, "ROLE_MANAGER", "经理", 1),
                 role(2L, "ROLE_HR", "HR", 2)));
         when(rolePermissionMapper.selectPermissionIdsByRoleIds(anySet())).thenReturn(Set.of(100L));
@@ -98,7 +98,9 @@ class RoleSessionServiceImplTest {
     @Test
     void permissionsFollowEffectiveRoleClosure() {
         when(userRoleMapper.selectRoleIdsByUserId(7L)).thenReturn(List.of(3L));
-        when(roleMapper.selectList(any())).thenReturn(List.of(role(3L, "ROLE_DEVELOPER", "开发", 3)));
+        when(roleMapper.selectList(any()))
+                .thenReturn(List.of(role(3L, "ROLE_DEVELOPER", "开发", 3)))
+                .thenReturn(List.of(role(1L, "ROLE_USER", "普通用户", 1)));
         when(roleInheritanceMapper.selectAncestorIdsByDescendantIds(anySet())).thenReturn(Set.of(1L));
         when(sodConstraintService.list(org.mockito.ArgumentMatchers.<Wrapper<SysSodConstraintEntity>>any()))
                 .thenReturn(List.of());
@@ -110,6 +112,39 @@ class RoleSessionServiceImplTest {
         assertThat(state.getActiveRoleIds()).containsExactly(3L);
         assertThat(state.getEffectiveRoleIds()).containsExactly(1L, 3L);
         assertThat(state.getPermissions()).containsExactly("system:role:query", "system:user:query");
+    }
+
+    @Test
+    void disabledAncestorDoesNotRemainEffective() {
+        when(userRoleMapper.selectRoleIdsByUserId(7L)).thenReturn(List.of(3L));
+        when(roleMapper.selectList(any()))
+                .thenReturn(List.of(role(3L, "ROLE_DEVELOPER", "开发", 3)))
+                .thenReturn(List.of());
+        when(roleInheritanceMapper.selectAncestorIdsByDescendantIds(anySet())).thenReturn(Set.of(1L));
+        when(sodConstraintService.list(org.mockito.ArgumentMatchers.<Wrapper<SysSodConstraintEntity>>any()))
+                .thenReturn(List.of());
+
+        SessionRoleStateVO state = service.buildState(7L, List.of(3L));
+
+        assertThat(state.getEffectiveRoleIds()).containsExactly(3L);
+    }
+
+    @Test
+    void buildDefaultStateRejectsStaticSodConflictFromInheritedRoleClosure() {
+        stubInheritedStaticSodConflict();
+
+        assertThatThrownBy(() -> service.buildDefaultState(7L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("静态职责分离");
+    }
+
+    @Test
+    void buildStateRejectsStaticSodConflictFromInheritedRoleClosure() {
+        stubInheritedStaticSodConflict();
+
+        assertThatThrownBy(() -> service.buildState(7L, List.of(3L)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("静态职责分离");
     }
 
     @Test
@@ -142,5 +177,17 @@ class RoleSessionServiceImplTest {
         constraint.setRoleSet(roleSet);
         constraint.setConstraintType(type);
         return constraint;
+    }
+
+    private void stubInheritedStaticSodConflict() {
+        when(userRoleMapper.selectRoleIdsByUserId(7L)).thenReturn(List.of(3L));
+        when(roleMapper.selectList(any()))
+                .thenReturn(List.of(role(3L, "ROLE_COMPOSITE", "复合角色", 3)))
+                .thenReturn(List.of(
+                        role(1L, "ROLE_AUDITOR", "审计", 1),
+                        role(2L, "ROLE_DEVELOPER", "开发", 2)));
+        when(roleInheritanceMapper.selectAncestorIdsByDescendantIds(anySet())).thenReturn(Set.of(1L, 2L));
+        when(sodConstraintService.list(org.mockito.ArgumentMatchers.<Wrapper<SysSodConstraintEntity>>any()))
+                .thenReturn(List.of(sod(11L, "审计与开发静态互斥", "[1,2]", (byte) 1)));
     }
 }

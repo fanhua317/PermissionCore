@@ -1,9 +1,14 @@
 package com.permacore.iam.security.filter;
 
-import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.permacore.iam.utils.JwtUtil;
 import com.permacore.iam.utils.RedisCacheUtil;
+import com.permacore.iam.mapper.SysUserMapper;
+import com.permacore.iam.domain.entity.SysUserEntity;
+import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.ResultCode;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * 统一的 JWT 授权过滤器，确保 SecurityConfig 中引用的 OncePerRequestFilter 存在。
@@ -37,37 +41,72 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final RedisCacheUtil redisCacheUtil;
+    private final SysUserMapper userMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         String token = resolveToken(request);
-        if (StrUtil.isBlank(token)) {
+        if (token == null || token.isBlank()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Claims claims;
+        Long userId;
+        List<SimpleGrantedAuthority> authorities;
+        try {
+            claims = jwtUtil.parseToken(token);
+            if (!jwtUtil.isAccessToken(claims)) {
+                throw new IllegalArgumentException("只允许使用 Access Token 访问受保护资源");
+            }
+            userId = Long.parseLong(claims.getSubject());
+            authorities = resolveAuthorities(claims);
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.warn("JWT 认证失败: {}", ex.getMessage());
+            SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            Claims claims = jwtUtil.parseToken(token);
-            Long userId = Long.parseLong(claims.getSubject());
-
             String currentVersion = redisCacheUtil.getJwtVersion(userId);
-            if (currentVersion == null || !StrUtil.equals(currentVersion, jwtUtil.getJtiFromToken(token))) {
+            String tokenSessionId = jwtUtil.getSessionId(claims);
+            if (currentVersion == null || tokenSessionId == null || !currentVersion.equals(tokenSessionId)) {
                 log.warn("Token 版本失效，userId={}", userId);
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            List<SimpleGrantedAuthority> authorities = resolveAuthorities(claims);
+            SysUserEntity authorizationState = userMapper.selectAuthorizationStateById(userId);
+            Object tokenAuthVersion = claims.get("authVersion");
+            long currentAuthVersion = authorizationState == null || authorizationState.getAuthVersion() == null
+                    ? -1L : authorizationState.getAuthVersion();
+            if (authorizationState == null
+                    || !Byte.valueOf((byte) 1).equals(authorizationState.getStatus())
+                    || Byte.valueOf((byte) 1).equals(authorizationState.getDelFlag())
+                    || !(tokenAuthVersion instanceof Number)
+                    || ((Number) tokenAuthVersion).longValue() != currentAuthVersion) {
+                log.warn("Token 授权版本失效，userId={}", userId);
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null,
                     authorities);
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-        } catch (Exception ex) {
-            log.warn("JWT 认证失败: {}", ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("认证状态服务不可用: userId={}", userId, ex);
             SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setContentType("application/json;charset=UTF-8");
+            objectMapper.writeValue(response.getWriter(), Result.error(ResultCode.SERVICE_UNAVAILABLE));
+            return;
         }
 
         filterChain.doFilter(request, response);
@@ -75,7 +114,7 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
 
     private String resolveToken(HttpServletRequest request) {
         String bearer = request.getHeader(HttpHeaders.AUTHORIZATION);
-        return StrUtil.isNotBlank(bearer) && bearer.startsWith("Bearer ") ? bearer.substring(7) : null;
+        return bearer != null && bearer.startsWith("Bearer ") && bearer.length() > 7 ? bearer.substring(7) : null;
     }
 
     private List<SimpleGrantedAuthority> resolveAuthorities(Claims claims) {
@@ -92,10 +131,10 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
             });
         } else if (permissionsObj instanceof String) {
             String permissions = (String) permissionsObj;
-            if (StrUtil.isNotBlank(permissions)) {
-                Stream.of(permissions.split(","))
+            if (!permissions.isBlank()) {
+                java.util.stream.Stream.of(permissions.split(","))
                         .map(String::trim)
-                        .filter(StrUtil::isNotEmpty)
+                        .filter(item -> !item.isEmpty())
                         .forEach(permissionList::add);
             }
         }
@@ -104,20 +143,3 @@ public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
                 .collect(Collectors.toList());
     }
 }
-
-/*
- * 非 Lombok 版本示例：
- * public class JwtAuthorizationOnceFilter extends OncePerRequestFilter {
- * private static final Logger log =
- * LoggerFactory.getLogger(JwtAuthorizationOnceFilter.class);
- * private final JwtUtil jwtUtil;
- * private final RedisCacheUtil redisCacheUtil;
- *
- * public JwtAuthorizationOnceFilter(JwtUtil jwtUtil, RedisCacheUtil
- * redisCacheUtil) {
- * this.jwtUtil = jwtUtil;
- * this.redisCacheUtil = redisCacheUtil;
- * }
- * // 其余方法保持不变
- * }
- */

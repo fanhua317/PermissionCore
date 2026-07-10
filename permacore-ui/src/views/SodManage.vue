@@ -89,8 +89,8 @@
           :total="total"
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSearch"
-          @current-change="handleSearch"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
         />
       </div>
     </el-card>
@@ -219,8 +219,8 @@ const fetchRoles = async () => {
     allRoles.value.forEach((role: any) => {
       roleMap.value[role.id] = role.roleName;
     });
-  } catch (error) {
-    console.error('Failed to fetch roles:', error);
+  } catch {
+    ElMessage.error('获取角色列表失败');
   }
 };
 
@@ -237,8 +237,7 @@ const fetchData = async () => {
     });
     tableData.value = res?.records ?? [];
     total.value = res?.total ?? 0;
-  } catch (error) {
-    console.error('Failed to fetch SoD constraints:', error);
+  } catch {
     ElMessage.error('获取约束列表失败');
   } finally {
     loading.value = false;
@@ -247,6 +246,15 @@ const fetchData = async () => {
 
 const handleSearch = () => {
   pageNo.value = 1;
+  fetchData();
+};
+
+const handleSizeChange = () => {
+  pageNo.value = 1;
+  fetchData();
+};
+
+const handlePageChange = () => {
   fetchData();
 };
 
@@ -280,11 +288,15 @@ const handleEdit = (row: any) => {
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定删除该约束吗？删除后相关角色的互斥限制将解除。', '提示', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete(`/api/sod-constraint/${id}`);
     ElMessage.success('删除成功');
     fetchData();
-  } catch (error) {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败');
   }
 };
 

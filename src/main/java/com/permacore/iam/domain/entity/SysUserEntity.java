@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ public class SysUserEntity implements Serializable {
     private String username;
 
     @TableField("password")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @TableField("nickname")
@@ -39,6 +42,10 @@ public class SysUserEntity implements Serializable {
 
     @TableField("status")
     private Byte status;
+
+    @TableField("auth_version")
+    @JsonIgnore
+    private Long authVersion;
 
     @TableField("create_by")
     private Long createBy;
@@ -129,6 +136,14 @@ public class SysUserEntity implements Serializable {
 
     public void setStatus(Byte status) {
         this.status = status;
+    }
+
+    public Long getAuthVersion() {
+        return authVersion;
+    }
+
+    public void setAuthVersion(Long authVersion) {
+        this.authVersion = authVersion;
     }
 
     public Long getCreateBy() {

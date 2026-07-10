@@ -1,80 +1,121 @@
-version: "3.8"
-
 services:
-  # ==================== MySQL 数据库 ====================
   mysql:
-    image: mysql:8.0
-    container_name: permacore-mysql
+    image: ${MYSQL_IMAGE:-mysql:8.0.46}
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
       MYSQL_DATABASE: permacore_iam
       TZ: Asia/Shanghai
-    ports:
-      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      # 首次启动时自动执行建表和初始化脚本（按文件名字母顺序）
       - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./src/main/resources/db/init-permissions.sql:/docker-entrypoint-initdb.d/02-init-permissions.sql:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$${MYSQL_ROOT_PASSWORD}"
+          mysql --protocol=tcp --host=127.0.0.1 --user=root
+          --database="$${MYSQL_DATABASE}" --silent --skip-column-names
+          --execute="SELECT
+          EXISTS(SELECT 1 FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user'
+          AND COLUMN_NAME = 'auth_version')
+          AND EXISTS(SELECT 1 FROM sys_role
+          WHERE role_key = 'ROLE_ADMIN' AND status = 1 AND del_flag = 0)
+          AND EXISTS(SELECT 1 FROM sys_permission
+          WHERE perm_key = 'admin:*' AND status = 1)" | grep -qx 1
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 30s
 
-  # ==================== Redis 缓存 ====================
+  db-access-init:
+    image: ${MYSQL_IMAGE:-mysql:8.0.46}
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_APP_PASSWORD: ${MYSQL_APP_PASSWORD:?MYSQL_APP_PASSWORD is required}
+    volumes:
+      - ./docker/mysql/ensure-app-user.sh:/usr/local/bin/ensure-app-user.sh:ro
+    entrypoint: ["sh", "/usr/local/bin/ensure-app-user.sh"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
   redis:
-    image: redis:7-alpine
-    container_name: permacore-redis
+    image: ${REDIS_IMAGE:-redis:7.4.7-alpine3.21}
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        - CMD-SHELL
+        - REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -qx PONG
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 8
 
-  # ==================== 后端服务 ====================
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: permacore-backend
+      args:
+        MAVEN_IMAGE: ${MAVEN_IMAGE:-maven:3.9.16-eclipse-temurin-21-alpine}
+        JRE_IMAGE: ${JRE_IMAGE:-eclipse-temurin:21-jre-alpine-3.23}
     restart: unless-stopped
     environment:
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
-      REDIS_PASSWORD: ""
-      JWT_SECRET: ${JWT_SECRET:-PermaCore-IAM-SecretKey-2025-Enterprise-Grade-RBAC-System-Very-Long-Key-For-HS256}
+      MYSQL_USER: permacore_app
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?MYSQL_APP_PASSWORD is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      APP_BOOTSTRAP_ENABLED: ${APP_BOOTSTRAP_ENABLED:-false}
+      APP_BOOTSTRAP_ADMIN_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      PUBLIC_API_DOCS: ${PUBLIC_API_DOCS:-false}
     ports:
-      - "54321:54321"
+      - "127.0.0.1:54321:54321"
     volumes:
-      - ./uploads:/app/uploads
+      - uploads-data:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:54321/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     depends_on:
-      mysql:
-        condition: service_healthy
+      db-access-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
-  # ==================== 前端服务（Nginx） ====================
   frontend:
     build:
       context: ./permacore-ui
       dockerfile: Dockerfile
-    container_name: permacore-frontend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22.23.1-alpine3.24}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:1.30.3-alpine}
     restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   mysql-data:
-    driver: local
   redis-data:
-    driver: local
+  uploads-data:

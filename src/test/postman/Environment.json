@@ -22,6 +22,11 @@
       "enabled": true
     },
     {
+      "key": "adminPassword",
+      "value": "",
+      "enabled": true
+    },
+    {
       "key": "firstActiveRoleId",
       "value": "",
       "enabled": true

@@ -23,5 +23,7 @@ public interface SysRolePermissionMapper extends BaseMapper<SysRolePermissionEnt
 
     void deleteByRoleId(@Param("roleId") Long roleId);
 
+    void deleteByPermissionIds(@Param("permissionIds") Set<Long> permissionIds);
+
     void insertBatch(@Param("records") List<SysRolePermissionEntity> records);
 }

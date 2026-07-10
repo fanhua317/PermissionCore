@@ -171,10 +171,10 @@ const canViewLogs = computed(() => userStore.hasPermission('system:log:query'));
 
 const quickActions = computed(() =>
   [
-    { title: '新建用户', icon: markRaw(Plus), color: '#409eff', path: '/user', permission: 'system:user' },
-    { title: '角色管理', icon: markRaw(UserFilled), color: '#67c23a', path: '/role', permission: 'system:role' },
-    { title: '权限配置', icon: markRaw(Key), color: '#e6a23c', path: '/permission', permission: 'system:permission' },
-    { title: '系统日志', icon: markRaw(Document), color: '#909399', path: '/oper-log', permission: 'system:log' },
+    { title: '用户管理', icon: markRaw(Plus), color: '#409eff', path: '/user', permission: 'system:user:query' },
+    { title: '角色管理', icon: markRaw(UserFilled), color: '#67c23a', path: '/role', permission: 'system:role:query' },
+    { title: '权限配置', icon: markRaw(Key), color: '#e6a23c', path: '/permission', permission: 'system:permission:query' },
+    { title: '系统日志', icon: markRaw(Document), color: '#909399', path: '/oper-log', permission: 'system:log:query' },
   ].filter((action) => userStore.hasPermission(action.permission))
 );
 
@@ -184,7 +184,7 @@ const systemInfo = ref([
   { label: '前端框架', value: 'Vue 3 + Element Plus' },
   { label: '权限模型', value: 'RBAC3' },
   { label: '数据库', value: 'MySQL 8.x' },
-  { label: '缓存', value: 'Redis + Caffeine' },
+  { label: '会话存储', value: 'Caffeine（本地）/ Redis（可选）' },
 ]);
 
 const recentLogs = ref<any[]>([]);

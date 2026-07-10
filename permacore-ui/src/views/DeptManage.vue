@@ -188,8 +188,18 @@ const rules: FormRules = {
   deptName: [{ required: true, message: '请输入部门名称', trigger: 'blur' }],
 };
 
+const excludeDeptSubtree = (nodes: any[], excludedId: number): any[] =>
+  nodes.flatMap((node) => {
+    if (node.id === excludedId) return [];
+    return [{ ...node, children: excludeDeptSubtree(node.children ?? [], excludedId) }];
+  });
+
 const deptTreeForSelect = computed(() => {
-  return [{ id: 0, deptName: '顶级部门', children: deptTree.value }];
+  const excludedId = isEdit.value ? deptForm.value.id : null;
+  const selectableTree = excludedId === null
+    ? deptTree.value
+    : excludeDeptSubtree(deptTree.value, excludedId);
+  return [{ id: 0, deptName: '顶级部门', children: selectableTree }];
 });
 
 watch(filterText, (val) => {
@@ -205,8 +215,7 @@ const getDeptTree = async () => {
   try {
     const res: any = await request.get('/api/dept/tree');
     deptTree.value = res ?? [];
-  } catch (error) {
-    console.error('Failed to get dept tree:', error);
+  } catch {
     ElMessage.error('获取部门列表失败');
   }
 };
@@ -257,12 +266,16 @@ const handleEdit = (row: any) => {
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定删除该部门吗？如有子部门或用户将无法删除。', '提示', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete(`/api/dept/${id}`);
     ElMessage.success('删除成功');
     currentDept.value = null;
     getDeptTree();
-  } catch (error) {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败');
   }
 };
 
@@ -272,10 +285,18 @@ const handleSubmit = async () => {
     if (!valid) return;
     submitLoading.value = true;
     try {
+      const payload = {
+        parentId: deptForm.value.parentId,
+        deptName: deptForm.value.deptName,
+        phone: deptForm.value.phone,
+        email: deptForm.value.email,
+        sortOrder: deptForm.value.sortOrder,
+        status: deptForm.value.status,
+      };
       if (isEdit.value) {
-        await request.put(`/api/dept/${deptForm.value.id}`, deptForm.value);
+        await request.put(`/api/dept/${deptForm.value.id}`, payload);
       } else {
-        await request.post('/api/dept', deptForm.value);
+        await request.post('/api/dept', payload);
       }
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功');
       dialogVisible.value = false;

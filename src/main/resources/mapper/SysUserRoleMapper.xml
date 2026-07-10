@@ -25,4 +25,16 @@
         DELETE FROM sys_user_role WHERE user_id = #{userId}
     </delete>
 
+    <delete id="deleteByRoleId">
+        DELETE FROM sys_user_role WHERE role_id = #{roleId}
+    </delete>
+
+    <select id="selectUserIdsByRoleIds" resultType="java.lang.Long">
+        SELECT DISTINCT user_id FROM sys_user_role
+        WHERE role_id IN
+        <foreach item="roleId" collection="roleIds" open="(" separator="," close=")">
+            #{roleId}
+        </foreach>
+    </select>
+
 </mapper>

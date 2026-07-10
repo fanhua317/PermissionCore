@@ -21,4 +21,6 @@ public interface SysRoleInheritanceMapper extends BaseMapper<SysRoleInheritanceE
     Set<Long> selectAncestorIdsByDescendantId(@Param("descendantId") Long descendantId);
 
     Set<Long> selectAncestorIdsByDescendantIds(@Param("descendantIds") Set<Long> descendantIds);
+
+    Set<Long> selectAllAncestorIdsByDescendantIds(@Param("descendantIds") Set<Long> descendantIds);
 }

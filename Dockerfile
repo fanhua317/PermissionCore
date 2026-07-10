@@ -2,8 +2,11 @@
 # PermaCore IAM 后端 Dockerfile（多阶段构建）
 # ============================================================
 
+ARG MAVEN_IMAGE=maven:3.9.16-eclipse-temurin-21-alpine
+ARG JRE_IMAGE=eclipse-temurin:21-jre-alpine-3.23
+
 # ---------- 第一阶段：Maven 编译打包 ----------
-FROM maven:3.9-eclipse-temurin-21 AS builder
+FROM ${MAVEN_IMAGE} AS builder
 
 WORKDIR /build
 
@@ -13,26 +16,30 @@ RUN mvn dependency:go-offline -B
 
 # 再拷贝源代码并打包
 COPY src ./src
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -B
 
 # ---------- 第二阶段：运行环境（仅 JRE，体积更小） ----------
-FROM eclipse-temurin:21-jre-alpine
+FROM ${JRE_IMAGE}
 
 LABEL maintainer="PermaCore Team"
 
 WORKDIR /app
 
+RUN addgroup -S permacore && adduser -S permacore -G permacore
+
 # 从构建阶段拷贝 jar
 COPY --from=builder /build/target/*.jar app.jar
 
 # 创建上传目录
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/uploads && chown -R permacore:permacore /app
 
 # 暴露端口
 EXPOSE 54321
 
 # 设置时区
 ENV TZ=Asia/Shanghai
+
+USER permacore
 
 # 启动命令，使用 docker profile
 ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=docker"]

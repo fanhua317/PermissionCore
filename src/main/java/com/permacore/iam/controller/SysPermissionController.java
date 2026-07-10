@@ -4,7 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.permacore.iam.domain.entity.SysPermissionEntity;
 import com.permacore.iam.domain.vo.PermissionTreeVO;
 import com.permacore.iam.domain.vo.Result;
+import com.permacore.iam.domain.vo.PermissionUpsertVO;
+import com.permacore.iam.mapper.SysRoleMapper;
+import com.permacore.iam.mapper.SysRolePermissionMapper;
+import com.permacore.iam.service.AuthorizationStateService;
 import com.permacore.iam.service.SysPermissionService;
+import com.permacore.iam.security.handler.BusinessException;
+import com.permacore.iam.domain.vo.ResultCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +21,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import jakarta.validation.Valid;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 权限管理控制器
@@ -28,6 +43,9 @@ public class SysPermissionController {
     private static final Logger log = LoggerFactory.getLogger(SysPermissionController.class);
 
     private final SysPermissionService permissionService;
+    private final SysRolePermissionMapper rolePermissionMapper;
+    private final SysRoleMapper roleMapper;
+    private final AuthorizationStateService authorizationStateService;
 
     /**
      * 获取权限树形结构
@@ -41,7 +59,7 @@ public class SysPermissionController {
                 .orderByAsc(SysPermissionEntity::getSortOrder)
         );
         
-        List<PermissionTreeVO> tree = buildPermTree(allPerms, 0L);
+        List<PermissionTreeVO> tree = buildPermTree(allPerms, 0L, new HashSet<>());
         return Result.success(tree);
     }
 
@@ -67,6 +85,9 @@ public class SysPermissionController {
     @GetMapping("/{id}")
     public Result<SysPermissionEntity> getById(@PathVariable Long id) {
         SysPermissionEntity perm = permissionService.getById(id);
+        if (perm == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "权限不存在");
+        }
         return Result.success(perm);
     }
 
@@ -76,39 +97,21 @@ public class SysPermissionController {
     @Operation(summary = "创建权限", description = "新增权限")
     @PreAuthorize("hasAuthority('permission:add')")
     @PostMapping
-    public Result<Void> create(@RequestBody java.util.Map<String, Object> permissionData) {
+    @Transactional
+    public Result<Void> create(@Valid @RequestBody PermissionUpsertVO vo) {
+        roleMapper.lockAllRoleIds();
+        validatePermissionFields(vo, true);
+        Long parentId = vo.getParentId() == null ? 0L : vo.getParentId();
+        validateParent(parentId, null);
         SysPermissionEntity permission = new SysPermissionEntity();
-        
-        // 处理前端传入的字段映射
-        if (permissionData.get("permCode") != null) {
-            permission.setPermKey(permissionData.get("permCode").toString());
+        applyPermissionFields(permission, vo);
+        permission.setParentId(parentId);
+        permission.setSortOrder(vo.getOrderNum() == null ? 0 : vo.getOrderNum());
+        permission.setStatus(vo.getStatus() == null ? (byte) 1 : vo.getStatus().byteValue());
+        if (!permissionService.save(permission)) {
+            throw new BusinessException(ResultCode.ERROR, "创建权限失败");
         }
-        if (permissionData.get("permName") != null) {
-            permission.setPermName(permissionData.get("permName").toString());
-        }
-        if (permissionData.get("parentId") != null) {
-            Object parentId = permissionData.get("parentId");
-            permission.setParentId(parentId instanceof Number ? ((Number) parentId).longValue() : Long.parseLong(parentId.toString()));
-        } else {
-            permission.setParentId(0L);
-        }
-        if (permissionData.get("type") != null) {
-            permission.setResourceType(convertTypeToResourceType(permissionData.get("type").toString()));
-        }
-        if (permissionData.get("orderNum") != null) {
-            Object orderNum = permissionData.get("orderNum");
-            permission.setSortOrder(orderNum instanceof Number ? ((Number) orderNum).intValue() : Integer.parseInt(orderNum.toString()));
-        } else {
-            permission.setSortOrder(0);
-        }
-        if (permissionData.get("status") != null) {
-            Object status = permissionData.get("status");
-            permission.setStatus(status instanceof Number ? ((Number) status).byteValue() : Byte.parseByte(status.toString()));
-        } else {
-            permission.setStatus((byte) 1);
-        }
-        
-        permissionService.save(permission);
+        authorizationStateService.invalidateAllUsers();
         log.info("创建权限: {}", permission.getPermName());
         return Result.success();
     }
@@ -119,40 +122,22 @@ public class SysPermissionController {
     @Operation(summary = "更新权限", description = "更新权限信息")
     @PreAuthorize("hasAuthority('permission:edit')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody java.util.Map<String, Object> permissionData) {
+    @Transactional
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody PermissionUpsertVO vo) {
+        roleMapper.lockAllRoleIds();
         SysPermissionEntity permission = permissionService.getById(id);
         if (permission == null) {
-            return Result.error("权限不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "权限不存在");
         }
-        
-        // 处理前端传入的字段映射
-        if (permissionData.get("permCode") != null) {
-            permission.setPermKey(permissionData.get("permCode").toString());
+        validatePermissionFields(vo, false);
+        if (vo.getParentId() != null) {
+            validateParent(vo.getParentId(), id);
         }
-        if (permissionData.get("permName") != null) {
-            permission.setPermName(permissionData.get("permName").toString());
+        applyPermissionFields(permission, vo);
+        if (!permissionService.updateById(permission)) {
+            throw new BusinessException(ResultCode.ERROR, "更新权限失败");
         }
-        if (permissionData.containsKey("parentId")) {
-            Object parentId = permissionData.get("parentId");
-            if (parentId != null) {
-                permission.setParentId(parentId instanceof Number ? ((Number) parentId).longValue() : Long.parseLong(parentId.toString()));
-            } else {
-                permission.setParentId(0L);
-            }
-        }
-        if (permissionData.get("type") != null) {
-            permission.setResourceType(convertTypeToResourceType(permissionData.get("type").toString()));
-        }
-        if (permissionData.get("orderNum") != null) {
-            Object orderNum = permissionData.get("orderNum");
-            permission.setSortOrder(orderNum instanceof Number ? ((Number) orderNum).intValue() : Integer.parseInt(orderNum.toString()));
-        }
-        if (permissionData.get("status") != null) {
-            Object status = permissionData.get("status");
-            permission.setStatus(status instanceof Number ? ((Number) status).byteValue() : Byte.parseByte(status.toString()));
-        }
-        
-        permissionService.updateById(permission);
+        authorizationStateService.invalidateAllUsers();
         log.info("更新权限: permId={}", id);
         return Result.success();
     }
@@ -163,11 +148,16 @@ public class SysPermissionController {
     @Operation(summary = "删除权限", description = "删除权限及其子权限")
     @PreAuthorize("hasAuthority('permission:delete')")
     @DeleteMapping("/{id}")
+    @Transactional
     public Result<Void> delete(@PathVariable Long id) {
-        // 删除子权限
-        deleteChildPermissions(id);
-        // 删除本权限
-        permissionService.removeById(id);
+        roleMapper.lockAllRoleIds();
+        Set<Long> permissionIds = collectPermissionTreeIds(id);
+        if (permissionIds.isEmpty()) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "权限不存在");
+        }
+        rolePermissionMapper.deleteByPermissionIds(permissionIds);
+        permissionService.removeByIds(permissionIds);
+        authorizationStateService.invalidateAllUsers();
         log.info("删除权限: permId={}", id);
         return Result.success();
     }
@@ -175,24 +165,11 @@ public class SysPermissionController {
     /**
      * 递归删除子权限
      */
-    private void deleteChildPermissions(Long parentId) {
-        List<SysPermissionEntity> children = permissionService.list(
-            new LambdaQueryWrapper<SysPermissionEntity>()
-                .eq(SysPermissionEntity::getParentId, parentId)
-        );
-        for (SysPermissionEntity child : children) {
-            deleteChildPermissions(child.getId());
-            permissionService.removeById(child.getId());
-        }
-    }
-
-    /**
-     * 构建权限树
-     */
-    private List<PermissionTreeVO> buildPermTree(List<SysPermissionEntity> perms, Long parentId) {
+    private List<PermissionTreeVO> buildPermTree(List<SysPermissionEntity> perms, Long parentId, Set<Long> visited) {
         return perms.stream()
-            .filter(p -> parentId.equals(p.getParentId()))
+            .filter(p -> parentId.equals(p.getParentId()) && p.getId() != null && !visited.contains(p.getId()))
             .map(p -> {
+                visited.add(p.getId());
                 PermissionTreeVO vo = new PermissionTreeVO();
                 vo.setId(p.getId());
                 vo.setParentId(p.getParentId());
@@ -201,10 +178,89 @@ public class SysPermissionController {
                 vo.setType(convertResourceType(p.getResourceType()));
                 vo.setOrderNum(p.getSortOrder());
                 vo.setStatus(p.getStatus() != null ? p.getStatus().intValue() : 1);
-                vo.setChildren(buildPermTree(perms, p.getId()));
+                vo.setChildren(buildPermTree(perms, p.getId(), visited));
                 return vo;
             })
             .collect(Collectors.toList());
+    }
+
+    private void applyPermissionFields(SysPermissionEntity permission, PermissionUpsertVO vo) {
+        if (vo.getPermCode() != null) {
+            permission.setPermKey(vo.getPermCode().trim());
+        }
+        if (vo.getPermName() != null) {
+            permission.setPermName(vo.getPermName().trim());
+        }
+        if (vo.getParentId() != null) {
+            permission.setParentId(vo.getParentId());
+        }
+        if (vo.getType() != null) {
+            permission.setResourceType(convertTypeToResourceType(vo.getType()));
+        }
+        if (vo.getOrderNum() != null) {
+            permission.setSortOrder(vo.getOrderNum());
+        }
+        if (vo.getStatus() != null) {
+            permission.setStatus(vo.getStatus().byteValue());
+        }
+    }
+
+    private void validatePermissionFields(PermissionUpsertVO vo, boolean required) {
+        if (required && (vo.getPermCode() == null || vo.getPermName() == null || vo.getType() == null)) {
+            throw new BusinessException("权限标识、名称和资源类型不能为空");
+        }
+        if (vo.getPermCode() != null && vo.getPermCode().isBlank()) {
+            throw new BusinessException("权限标识不能为空");
+        }
+        if (vo.getPermName() != null && vo.getPermName().isBlank()) {
+            throw new BusinessException("权限名称不能为空");
+        }
+    }
+
+    private void validateParent(Long parentId, Long currentId) {
+        if (parentId == null || parentId == 0L) {
+            return;
+        }
+        if (parentId.equals(currentId) || permissionService.getById(parentId) == null) {
+            throw new com.permacore.iam.security.handler.BusinessException("上级权限不存在或不能选择自身");
+        }
+        Map<Long, Long> parents = permissionService.list().stream()
+                .filter(permission -> permission.getId() != null)
+                .collect(Collectors.toMap(SysPermissionEntity::getId, SysPermissionEntity::getParentId, (a, b) -> a));
+        Set<Long> visited = new HashSet<>();
+        Long cursor = parentId;
+        while (cursor != null && cursor != 0L && visited.add(cursor)) {
+            if (cursor.equals(currentId)) {
+                throw new com.permacore.iam.security.handler.BusinessException("上级权限不能是当前权限的子权限");
+            }
+            cursor = parents.get(cursor);
+        }
+        if (cursor != null && cursor != 0L) {
+            throw new com.permacore.iam.security.handler.BusinessException("权限树中存在环，请先修复数据");
+        }
+    }
+
+    private Set<Long> collectPermissionTreeIds(Long rootId) {
+        List<SysPermissionEntity> all = permissionService.list();
+        Map<Long, List<Long>> children = all.stream()
+                .filter(permission -> permission.getId() != null && permission.getParentId() != null)
+                .collect(Collectors.groupingBy(SysPermissionEntity::getParentId,
+                        Collectors.mapping(SysPermissionEntity::getId, Collectors.toList())));
+        Set<Long> existingIds = all.stream().map(SysPermissionEntity::getId)
+                .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        if (!existingIds.contains(rootId)) {
+            return Set.of();
+        }
+        LinkedHashSet<Long> result = new LinkedHashSet<>();
+        Deque<Long> queue = new ArrayDeque<>();
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            Long current = queue.removeFirst();
+            if (result.add(current)) {
+                queue.addAll(children.getOrDefault(current, List.of()));
+            }
+        }
+        return result;
     }
 
     /**

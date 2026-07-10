@@ -54,6 +54,7 @@ public class RoleSessionServiceImpl implements RoleSessionService {
     @Override
     public SessionRoleStateVO buildDefaultState(Long userId) {
         List<SysRoleEntity> assignableRoles = getAssignableRoles(userId);
+        validateStaticSod(userId, assignableRoles);
         LinkedHashSet<Long> selectedRoleIds = new LinkedHashSet<>();
         List<DsdConflictVO> lastConflicts = new ArrayList<>();
 
@@ -77,6 +78,7 @@ public class RoleSessionServiceImpl implements RoleSessionService {
     @Override
     public SessionRoleStateVO buildState(Long userId, Collection<Long> activeRoleIds) {
         List<SysRoleEntity> assignableRoles = getAssignableRoles(userId);
+        validateStaticSod(userId, assignableRoles);
         LinkedHashSet<Long> normalizedActiveRoleIds = normalizeRoleIds(activeRoleIds);
         Set<Long> assignableRoleIds = assignableRoles.stream()
                 .map(SysRoleEntity::getId)
@@ -101,7 +103,14 @@ public class RoleSessionServiceImpl implements RoleSessionService {
 
         Set<Long> inheritedRoleIds = roleInheritanceMapper.selectAncestorIdsByDescendantIds(effectiveRoleIds);
         if (inheritedRoleIds != null && !inheritedRoleIds.isEmpty()) {
-            effectiveRoleIds.addAll(inheritedRoleIds);
+            List<SysRoleEntity> enabledAncestors = roleMapper.selectList(
+                    new LambdaQueryWrapper<SysRoleEntity>()
+                            .in(SysRoleEntity::getId, inheritedRoleIds)
+                            .eq(SysRoleEntity::getStatus, (byte) 1)
+                            .eq(SysRoleEntity::getDelFlag, (byte) 0));
+            if (enabledAncestors != null) {
+                enabledAncestors.stream().map(SysRoleEntity::getId).forEach(effectiveRoleIds::add);
+            }
         }
         return effectiveRoleIds;
     }
@@ -264,6 +273,31 @@ public class RoleSessionServiceImpl implements RoleSessionService {
         return conflicts;
     }
 
+    private void validateStaticSod(Long userId, List<SysRoleEntity> assignableRoles) {
+        if (assignableRoles == null || assignableRoles.isEmpty()) {
+            return;
+        }
+        Set<Long> effectiveAssignedRoles = resolveEffectiveRoleIds(assignableRoles.stream()
+                .map(SysRoleEntity::getId)
+                .collect(Collectors.toSet()));
+        List<SysSodConstraintEntity> constraints = sodConstraintService.list(
+                new LambdaQueryWrapper<SysSodConstraintEntity>()
+                        .eq(SysSodConstraintEntity::getConstraintType, (byte) 1));
+        if (constraints == null) {
+            return;
+        }
+        for (SysSodConstraintEntity constraint : constraints) {
+            List<Long> conflicts = parseRoleSet(constraint).stream()
+                    .filter(effectiveAssignedRoles::contains)
+                    .distinct()
+                    .toList();
+            if (conflicts.size() >= 2) {
+                throw new BusinessException("用户角色违反静态职责分离约束: userId=" + userId
+                        + ", 约束=" + constraint.getConstraintName());
+            }
+        }
+    }
+
     private Map<Long, SysRoleEntity> loadRoleMap(Collection<Long> roleIds) {
         if (CollectionUtils.isEmpty(roleIds)) {
             return Map.of();
@@ -278,10 +312,10 @@ public class RoleSessionServiceImpl implements RoleSessionService {
     private List<Long> parseRoleSet(SysSodConstraintEntity constraint) {
         try {
             return objectMapper.readValue(constraint.getRoleSet(), new TypeReference<List<Long>>() {
-            });
+            }).stream().filter(Objects::nonNull).distinct().toList();
         } catch (Exception e) {
-            log.warn("Ignore invalid SoD role set: constraintId={}, error={}", constraint.getId(), e.getMessage());
-            return List.of();
+            log.error("Invalid SoD role set: constraintId={}", constraint.getId(), e);
+            throw new BusinessException("SoD约束配置无效: " + constraint.getId());
         }
     }
 

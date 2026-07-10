@@ -21,6 +21,22 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
+        '/uploads': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/@element-plus/icons-vue')) return 'element-icons'
+            if (id.includes('node_modules/element-plus')) return 'element-plus'
+            if (id.includes('node_modules/vue') || id.includes('node_modules/pinia')) return 'vue-vendor'
+            if (id.includes('node_modules/axios')) return 'http-vendor'
+          },
+        },
       },
     },
   }

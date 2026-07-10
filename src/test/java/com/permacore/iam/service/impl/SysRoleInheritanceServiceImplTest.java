@@ -13,6 +13,7 @@ import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.mapper.SysUserRoleMapper;
 import com.permacore.iam.security.handler.BusinessException;
 import com.permacore.iam.service.SysSodConstraintService;
+import com.permacore.iam.service.AuthorizationStateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +44,8 @@ class SysRoleInheritanceServiceImplTest {
     private SysUserMapper userMapper;
     @Mock
     private SysSodConstraintService sodConstraintService;
+    @Mock
+    private AuthorizationStateService authorizationStateService;
 
     private SysRoleInheritanceServiceImpl service;
 
@@ -54,7 +57,8 @@ class SysRoleInheritanceServiceImplTest {
                 userRoleMapper,
                 userMapper,
                 sodConstraintService,
-                new ObjectMapper());
+                new ObjectMapper(),
+                authorizationStateService);
     }
 
     @Test

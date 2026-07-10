@@ -115,8 +115,7 @@ const getLogList = async () => {
     const res: any = await request.get('/api/login-log/page', { params });
     logList.value = res?.records ?? [];
     total.value = res?.total ?? 0;
-  } catch (error) {
-    console.error('Failed to get login log list:', error);
+  } catch {
     ElMessage.error('获取登录日志失败');
   } finally {
     loading.value = false;
@@ -138,11 +137,15 @@ const handleRefresh = () => {
 const handleClear = async () => {
   try {
     await ElMessageBox.confirm('确定要清空所有登录日志吗？此操作不可恢复。', '警告', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete('/api/login-log/clear');
     ElMessage.success('清空成功');
     getLogList();
-  } catch (error) {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '清空失败');
   }
 };
 

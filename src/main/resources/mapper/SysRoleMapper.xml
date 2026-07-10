@@ -7,7 +7,6 @@
         <id column="id" property="id" />
         <result column="role_key" property="roleKey" />
         <result column="role_name" property="roleName" />
-        <result column="parent_id" property="parentId" />
         <result column="role_type" property="roleType" />
         <result column="sort_order" property="sortOrder" />
         <result column="status" property="status" />
@@ -21,7 +20,15 @@
 
     <!-- 通用查询结果列 -->
     <sql id="Base_Column_List">
-        id, role_key, role_name, parent_id, role_type, sort_order, status, create_by, create_time, update_by, update_time, remark, del_flag
+        id, role_key, role_name, role_type, sort_order, status, create_by, create_time, update_by, update_time, remark, del_flag
     </sql>
+
+    <select id="lockAllRoleIds" resultType="java.lang.Long">
+        SELECT id FROM sys_role ORDER BY id FOR UPDATE
+    </select>
+
+    <select id="lockAllRoleIdsShared" resultType="java.lang.Long">
+        SELECT id FROM sys_role ORDER BY id FOR SHARE
+    </select>
 
 </mapper>

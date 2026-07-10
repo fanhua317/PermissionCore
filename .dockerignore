@@ -1,25 +1,35 @@
-# IDE
+.git/
+.github/
 .idea/
 .vscode/
 *.iml
 
-# Git
-.git/
-.github/
-
-# 构建产物
-target/
-permacore-ui/node_modules/
-permacore-ui/dist/
-
-# 日志
+# Local secrets and runtime data
+.env
+.env.*
+!.env.example
+uploads/
+backups/
+*.bak
+*.dump
+*.sql.gz
+*backup*.sql
+*-before-*.sql
 *.log
 
-# Docker 自身
-docker-compose.yml
-.dockerignore
+# Build output and dependencies
+target/
+codegen/target/
+permacore-ui/node_modules/
+permacore-ui/dist/
+__pycache__/
+*.py[cod]
+.playwright-cli/
 
-# 其他
+# Files not needed by the backend image build
+docker-compose.yml
+docker/
+permacore-ui/
 *.md
 *.ps1
 *.bat

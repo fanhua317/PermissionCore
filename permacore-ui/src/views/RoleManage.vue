@@ -198,7 +198,7 @@ const roleForm = ref(emptyForm());
 const rules: FormRules = {
   roleKey: [
     { required: true, message: '请输入角色编码', trigger: 'blur' },
-    { pattern: /^[A-Z_]+$/, message: '角色编码只能包含大写字母和下划线', trigger: 'blur' },
+    { pattern: /^[A-Z][A-Z0-9_]{2,99}$/, message: '角色编码需以大写字母开头，长度3-100，可含数字和下划线', trigger: 'blur' },
   ],
   roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 };
@@ -211,8 +211,7 @@ const getRoleList = async () => {
     });
     roleList.value = res?.records ?? [];
     total.value = res?.total ?? 0;
-  } catch (error) {
-    console.error('Failed to get role list:', error);
+  } catch {
     ElMessage.error('获取角色列表失败');
   } finally {
     loading.value = false;
@@ -256,11 +255,15 @@ const handleStatusChange = async (row: any) => {
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定删除该角色吗？删除后相关用户将失去该角色的权限。', '提示', { type: 'warning' });
+  } catch {
+    return;
+  }
+  try {
     await request.delete(`/api/role/${id}`);
     ElMessage.success('删除成功');
     getRoleList();
-  } catch (error) {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败');
   }
 };
 

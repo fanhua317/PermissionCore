@@ -3,6 +3,7 @@ package com.permacore.iam.mapper;
 import com.permacore.iam.domain.entity.SysDeptEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
 
 /**
  * <p>
@@ -14,5 +15,5 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface SysDeptMapper extends BaseMapper<SysDeptEntity> {
-
+    List<Long> lockAllDeptIds();
 }

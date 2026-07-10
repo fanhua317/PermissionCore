@@ -12,25 +12,19 @@ import com.permacore.iam.domain.entity.SysUserRoleEntity;
 import com.permacore.iam.mapper.SysRoleMapper;
 import com.permacore.iam.mapper.SysUserMapper;
 import com.permacore.iam.mapper.SysUserRoleMapper;
+import com.permacore.iam.security.handler.BusinessException;
+import com.permacore.iam.service.AuthorizationStateService;
 import com.permacore.iam.service.SysSodConstraintService;
-import com.permacore.iam.utils.RedisCacheUtil;
-import com.permacore.iam.security.SecurityUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.InternalAuthenticationServiceException;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -47,55 +41,9 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleMapper roleMapper;
     private final PermissionService permissionService;
-    private final RedisCacheUtil redisCacheUtil;
     private final SysSodConstraintService sodConstraintService;
     private final ObjectMapper objectMapper;
-
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        if (userMapper == null) {
-            log.error("SysUserMapper is null in UserServiceImpl!");
-            throw new InternalAuthenticationServiceException("SysUserMapper injection failed");
-        }
-        // 通过用户名查找用户
-        LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysUserEntity::getUsername, username);
-        SysUserEntity user = userMapper.selectOne(wrapper);
-
-        if (user == null || Byte.valueOf((byte) 1).equals(user.getDelFlag())) {
-            log.warn("用户不存在: username={}", username);
-            throw new UsernameNotFoundException("用户不存在");
-        }
-        if (Byte.valueOf((byte) 0).equals(user.getStatus())) {
-            log.warn("用户已被禁用: username={}", username);
-            throw new UsernameNotFoundException("用户已被禁用");
-        }
-        log.info("加载用户信息: userId={}, username={}", user.getId(), user.getUsername());
-
-        Set<String> permissions = getUserPermissionsWithCache(user.getId());
-        List<GrantedAuthority> authorities = permissions.stream().map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
-
-        SecurityUser securityUser = new SecurityUser(user, authorities);
-
-        log.info("UserDetails created: username={}, password={}", securityUser.getUsername(),
-                securityUser.getPassword());
-        return securityUser;
-    }
-
-    public Set<String> getUserPermissionsWithCache(Long userId) {
-        Set<String> permissions = redisCacheUtil.getUserPermissions(userId);
-        if (permissions != null) {
-            return permissions;
-        }
-        permissions = permissionService.getUserPermissions(userId);
-        if (permissions == null) {
-            permissions = new HashSet<>();
-        }
-        redisCacheUtil.setUserPermissions(userId, permissions, 30, TimeUnit.MINUTES);
-        log.debug("加载用户权限: userId={}, permissionCount={}", userId, permissions.size());
-        return permissions;
-    }
+    private final AuthorizationStateService authorizationStateService;
 
     public boolean usernameExists(String username) {
         LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<>();
@@ -104,33 +52,91 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
         return userMapper.selectCount(wrapper) > 0;
     }
 
-    public void clearUserCache(Long userId) {
-        redisCacheUtil.deleteUserPermissions(userId);
-        redisCacheUtil.deleteJwtVersion(userId);
-    }
-
     @Override
     @Transactional
     public void assignRoles(Long userId, List<Long> roleIds) {
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+        if (roleIds != null && roleIds.size() > 500) {
+            throw new BusinessException("单次最多分配500个角色");
+        }
+        if (roleIds != null && roleIds.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new BusinessException("角色ID不能为空");
+        }
+        roleMapper.lockAllRoleIds();
+        SysUserEntity targetUser = userMapper.selectById(userId);
+        if (targetUser == null || Byte.valueOf((byte) 1).equals(targetUser.getDelFlag())) {
+            throw new BusinessException("用户不存在: " + userId);
+        }
+
+        List<Long> normalizedRoleIds = roleIds == null ? List.of()
+                : new ArrayList<>(new LinkedHashSet<>(roleIds));
+        validateAssignableRoles(normalizedRoleIds);
+
         // RBAC3: 校验静态互斥约束 (SSD - Static Separation of Duty)
-        if (roleIds != null && !roleIds.isEmpty()) {
-            checkSsdConstraints(roleIds);
+        if (!normalizedRoleIds.isEmpty()) {
+            checkSsdConstraints(normalizedRoleIds);
         }
 
         // 先删除原有角色关联
         userRoleMapper.deleteByUserId(userId);
         // 插入新的角色关联
-        if (roleIds != null && !roleIds.isEmpty()) {
-            for (Long roleId : roleIds) {
+        if (!normalizedRoleIds.isEmpty()) {
+            for (Long roleId : normalizedRoleIds) {
                 SysUserRoleEntity userRole = new SysUserRoleEntity();
                 userRole.setUserId(userId);
                 userRole.setRoleId(roleId);
                 userRoleMapper.insert(userRole);
             }
         }
-        // 清除用户权限缓存，使新角色权限立即生效
-        clearUserCache(userId);
-        log.info("角色分配完成: userId={}, roleIds={}", userId, roleIds);
+        authorizationStateService.invalidateUsers(List.of(userId));
+        log.info("角色分配完成: userId={}, roleIds={}", userId, normalizedRoleIds);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(Long userId) {
+        roleMapper.lockAllRoleIds();
+        if (userId == null || userMapper.selectById(userId) == null) {
+            throw new BusinessException("用户不存在: " + userId);
+        }
+        userRoleMapper.deleteByUserId(userId);
+        if (!super.removeById(userId)) {
+            throw new BusinessException("删除用户失败: " + userId);
+        }
+        authorizationStateService.invalidateUsers(List.of(userId));
+    }
+
+    @Override
+    @Transactional
+    public void deleteUsers(List<Long> userIds) {
+        List<Long> normalizedIds = userIds == null ? List.of()
+                : userIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (normalizedIds.isEmpty()) {
+            throw new BusinessException("请选择要删除的用户");
+        }
+        for (Long userId : normalizedIds) {
+            deleteUser(userId);
+        }
+    }
+
+    private void validateAssignableRoles(List<Long> roleIds) {
+        if (roleIds.isEmpty()) {
+            return;
+        }
+        List<SysRoleEntity> roles = roleMapper.selectBatchIds(roleIds);
+        Set<Long> validRoleIds = roles == null ? Set.of() : roles.stream()
+                .filter(role -> Byte.valueOf((byte) 1).equals(role.getStatus()))
+                .filter(role -> !Byte.valueOf((byte) 1).equals(role.getDelFlag()))
+                .map(SysRoleEntity::getId)
+                .collect(Collectors.toSet());
+        List<Long> invalidRoleIds = roleIds.stream()
+                .filter(roleId -> !validRoleIds.contains(roleId))
+                .toList();
+        if (!invalidRoleIds.isEmpty()) {
+            throw new BusinessException("角色不存在或未启用: " + invalidRoleIds);
+        }
     }
 
     /**
@@ -143,7 +149,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
                 new LambdaQueryWrapper<SysSodConstraintEntity>()
                         .eq(SysSodConstraintEntity::getConstraintType, (byte) 1));
 
-        Set<Long> roleIdSet = permissionService.getRoleIdsWithInheritance(roleIds);
+        Set<Long> roleIdSet = permissionService.getPotentialRoleIdsWithInheritance(roleIds);
 
         for (SysSodConstraintEntity constraint : ssdConstraints) {
             try {
@@ -155,6 +161,7 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
 
                 // 计算交集数量
                 long conflictCount = mutexRoleIds.stream()
+                        .distinct()
                         .filter(roleIdSet::contains)
                         .count();
 
@@ -163,12 +170,13 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
                     log.warn("SSD约束冲突: constraint={}, conflictRoles={}",
                             constraint.getConstraintName(),
                             mutexRoleIds.stream().filter(roleIdSet::contains).collect(Collectors.toList()));
-                    throw new RuntimeException("角色分配违反职责分离约束: " + constraint.getConstraintName());
+                    throw new BusinessException("角色分配违反职责分离约束: " + constraint.getConstraintName());
                 }
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
                 log.error("解析SoD约束失败: constraintId={}, error={}", constraint.getId(), e.getMessage());
+                throw new BusinessException("SoD约束配置无效: " + constraint.getId());
             }
         }
     }
@@ -193,24 +201,3 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity>
         return super.page(page, wrapper);
     }
 }
-
-/*
- * 非 Lombok 版本示例：
- * public class UserServiceImpl extends ServiceImpl<SysUserMapper,
- * SysUserEntity>
- * implements UserDetailsService, com.permacore.iam.service.UserService {
- * private static final Logger log =
- * LoggerFactory.getLogger(UserServiceImpl.class);
- * private final SysUserMapper userMapper;
- * private final PermissionService permissionService;
- * private final RedisCacheUtil redisCacheUtil;
- *
- * public UserServiceImpl(SysUserMapper userMapper, PermissionService
- * permissionService, RedisCacheUtil redisCacheUtil) {
- * this.userMapper = userMapper;
- * this.permissionService = permissionService;
- * this.redisCacheUtil = redisCacheUtil;
- * }
- * // 其余方法保持不变
- * }
- */

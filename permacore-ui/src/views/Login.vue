@@ -26,6 +26,8 @@
             placeholder="请输入用户名" 
             size="large"
             :prefix-icon="User"
+            autocomplete="username"
+            :maxlength="50"
           />
         </el-form-item>
         <el-form-item prop="password">
@@ -36,13 +38,9 @@
             size="large"
             :prefix-icon="Lock"
             show-password
+            autocomplete="current-password"
+            :maxlength="72"
           />
-        </el-form-item>
-        <el-form-item>
-          <div class="login-options">
-            <el-checkbox v-model="rememberMe">记住我</el-checkbox>
-            <el-link type="primary" :underline="false">忘记密码?</el-link>
-          </div>
         </el-form-item>
         <el-form-item>
           <el-button 
@@ -71,7 +69,7 @@
     </el-card>
     
     <div class="copyright">
-      © 2024 PermaCore IAM - 网络空间安全权限管理系统
+      © 2024–{{ currentYear }} PermaCore IAM - 网络空间安全权限管理系统
     </div>
   </div>
 </template>
@@ -86,18 +84,21 @@ import router from '@/router';
 import service from '@/utils/request';
 
 const userStore = useUserStore();
+const currentYear = new Date().getFullYear();
 const loginFormRef = ref<FormInstance>();
 const loading = ref(false);
-const rememberMe = ref(true);
 
 const loginForm = reactive({
-  username: 'admin',
-  password: 'Admin@123456',
+  username: '',
+  password: '',
 });
 
 const loginRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { max: 72, message: '密码长度不能超过 72 个字符', trigger: 'blur' },
+  ],
 };
 
 const handleLogin = async () => {
@@ -115,7 +116,7 @@ const handleLogin = async () => {
       ElMessage.success('登录成功，欢迎回来！');
       router.push('/dashboard');
     } catch (error: any) {
-      console.error('登录失败', error);
+      ElMessage.error(error?.message || '登录失败，请稍后重试');
     } finally {
       loading.value = false;
     }
@@ -215,13 +216,6 @@ const handleLogin = async () => {
 
 .login-form {
   padding: 0 10px;
-}
-
-.login-options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
 }
 
 .login-btn {

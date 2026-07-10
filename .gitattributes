@@ -1,0 +1,2 @@
+# Shell entrypoints are bind-mounted into Linux containers and must not gain CRLF.
+*.sh text eol=lf

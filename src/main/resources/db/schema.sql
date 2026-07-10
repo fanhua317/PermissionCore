@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     phone       VARCHAR(20)  DEFAULT NULL             COMMENT '手机号',
     dept_id     BIGINT       DEFAULT NULL             COMMENT '部门ID',
     status      TINYINT      DEFAULT 1                COMMENT '状态：1-正常 0-禁用',
+    auth_version BIGINT      NOT NULL DEFAULT 0       COMMENT '授权状态版本，每次撤销会话时递增',
     create_by   BIGINT       DEFAULT NULL             COMMENT '创建人',
     create_time DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_by   BIGINT       DEFAULT NULL             COMMENT '更新人',
@@ -50,7 +51,6 @@ CREATE TABLE IF NOT EXISTS sys_role (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '角色ID',
     role_key    VARCHAR(100) NOT NULL                 COMMENT '角色标识',
     role_name   VARCHAR(100) NOT NULL                 COMMENT '角色名称',
-    parent_id   BIGINT       DEFAULT 0               COMMENT '父角色ID（用于继承）',
     role_type   TINYINT      DEFAULT 2                COMMENT '角色类型：1-系统角色 2-自定义角色',
     sort_order  INT          DEFAULT 0                COMMENT '排序',
     status      TINYINT      DEFAULT 1                COMMENT '状态：1-启用 0-禁用',
@@ -86,7 +86,9 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
     role_id     BIGINT   NOT NULL                 COMMENT '角色ID',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_user_role (user_id, role_id)
+    UNIQUE KEY uk_user_role (user_id, role_id),
+    CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES sys_user (id),
+    CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES sys_role (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关联表';
 
 -- 6. 角色权限关联表
@@ -96,7 +98,9 @@ CREATE TABLE IF NOT EXISTS sys_role_permission (
     permission_id BIGINT   NOT NULL                 COMMENT '权限ID',
     create_time   DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_role_perm (role_id, permission_id)
+    UNIQUE KEY uk_role_perm (role_id, permission_id),
+    CONSTRAINT fk_role_perm_role FOREIGN KEY (role_id) REFERENCES sys_role (id),
+    CONSTRAINT fk_role_perm_permission FOREIGN KEY (permission_id) REFERENCES sys_permission (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限关联表';
 
 -- 7. 角色继承关系表（RBAC3）
@@ -106,7 +110,10 @@ CREATE TABLE IF NOT EXISTS sys_role_inheritance (
     descendant_id BIGINT NOT NULL                 COMMENT '后代角色ID',
     depth         INT    DEFAULT 1                COMMENT '继承深度',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_ancestor_descendant (ancestor_id, descendant_id)
+    UNIQUE KEY uk_ancestor_descendant (ancestor_id, descendant_id),
+    CONSTRAINT chk_role_inheritance_no_self CHECK (ancestor_id <> descendant_id),
+    CONSTRAINT fk_role_inheritance_ancestor FOREIGN KEY (ancestor_id) REFERENCES sys_role (id),
+    CONSTRAINT fk_role_inheritance_descendant FOREIGN KEY (descendant_id) REFERENCES sys_role (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色继承关系表';
 
 -- 8. 职责分离约束表（RBAC3 SoD）
@@ -119,18 +126,7 @@ CREATE TABLE IF NOT EXISTS sys_sod_constraint (
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='职责分离约束表';
 
--- 9. JWT版本控制表
-CREATE TABLE IF NOT EXISTS sys_jwt_version (
-    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    user_id     BIGINT       NOT NULL                 COMMENT '用户ID',
-    jwt_version VARCHAR(100) NOT NULL                 COMMENT 'JWT版本号',
-    expire_time DATETIME     DEFAULT NULL             COMMENT '过期时间',
-    create_time DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    PRIMARY KEY (id),
-    KEY idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='JWT版本控制表';
-
--- 10. 登录日志表
+-- 9. 登录日志表
 CREATE TABLE IF NOT EXISTS sys_login_log (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '日志ID',
     username    VARCHAR(50)  DEFAULT NULL             COMMENT '登录用户名',
@@ -145,7 +141,7 @@ CREATE TABLE IF NOT EXISTS sys_login_log (
     KEY idx_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='登录日志表';
 
--- 11. 操作日志表
+-- 10. 操作日志表
 CREATE TABLE IF NOT EXISTS sys_oper_log (
     id             BIGINT        NOT NULL AUTO_INCREMENT COMMENT '日志ID',
     title          VARCHAR(100)  DEFAULT NULL             COMMENT '操作标题',
@@ -165,10 +161,3 @@ CREATE TABLE IF NOT EXISTS sys_oper_log (
     PRIMARY KEY (id),
     KEY idx_oper_time (oper_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='操作日志表';
-
--- ============================================================
--- 插入默认管理员账户：admin / Admin@123456
--- ============================================================
-INSERT INTO sys_user (username, password, nickname, status, create_time)
-SELECT 'admin', '$2a$10$lNXvCutfulLhh7VjGB1cou98Omd/UpEVMtRaX5cMZzNpaYBcg8q4W', '超级管理员', 1, NOW()
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'admin');

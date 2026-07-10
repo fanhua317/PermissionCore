@@ -3,6 +3,8 @@ package com.permacore.iam.mapper;
 import com.permacore.iam.domain.entity.SysUserEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import java.util.Collection;
 
 /**
  * <p>
@@ -14,5 +16,9 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface SysUserMapper extends BaseMapper<SysUserEntity> {
+    int incrementAuthVersions(@Param("userIds") Collection<Long> userIds);
 
+    int incrementAllActiveAuthVersions();
+
+    SysUserEntity selectAuthorizationStateById(@Param("userId") Long userId);
 }

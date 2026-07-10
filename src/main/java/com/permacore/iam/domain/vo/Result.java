@@ -26,11 +26,6 @@ public class Result<T> implements Serializable {
     private T data;
 
     /**
-     * 详细诊断信息（管理员可见）
-     */
-    private String detail;
-
-    /**
      * 时间戳
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -67,15 +62,6 @@ public class Result<T> implements Serializable {
         return this;
     }
 
-    public String getDetail() {
-        return detail;
-    }
-
-    public Result<T> setDetail(String detail) {
-        this.detail = detail;
-        return this;
-    }
-
     public LocalDateTime getTimestamp() {
         return timestamp;
     }
@@ -97,12 +83,6 @@ public class Result<T> implements Serializable {
                 .setData(data);
     }
 
-    public static <T> Result<T> error(String message) {
-        return new Result<T>()
-                .setCode(ResultCode.ERROR.getCode())
-                .setMsg(message);
-    }
-
     public static <T> Result<T> error(ResultCode resultCode) {
         return new Result<T>()
                 .setCode(resultCode.getCode())
@@ -121,28 +101,4 @@ public class Result<T> implements Serializable {
                 .setMsg(message);
     }
 
-    /**
-     * 错误响应（分层提示：用户可读消息 + 管理员诊断信息）
-     * @param message 用户可读的业务错误提示
-     * @param detail 管理员可见的技术诊断信息
-     */
-    public static <T> Result<T> error(String message, String detail) {
-        return new Result<T>()
-                .setCode(ResultCode.ERROR.getCode())
-                .setMsg(message)
-                .setDetail(detail);
-    }
-
-    /**
-     * 错误响应（分层提示：用户可读消息 + 管理员诊断信息）
-     * @param resultCode 错误码
-     * @param message 用户可读的业务错误提示
-     * @param detail 管理员可见的技术诊断信息
-     */
-    public static <T> Result<T> error(ResultCode resultCode, String message, String detail) {
-        return new Result<T>()
-                .setCode(resultCode.getCode())
-                .setMsg(message)
-                .setDetail(detail);
-    }
 }

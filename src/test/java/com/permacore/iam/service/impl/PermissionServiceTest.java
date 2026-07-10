@@ -3,7 +3,6 @@ package com.permacore.iam.service.impl;
 import com.permacore.iam.mapper.SysPermissionMapper;
 import com.permacore.iam.mapper.SysRoleInheritanceMapper;
 import com.permacore.iam.mapper.SysRolePermissionMapper;
-import com.permacore.iam.mapper.SysUserRoleMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,8 +19,6 @@ import static org.mockito.Mockito.when;
 class PermissionServiceTest {
 
     @Mock
-    private SysUserRoleMapper userRoleMapper;
-    @Mock
     private SysRolePermissionMapper rolePermissionMapper;
     @Mock
     private SysPermissionMapper permissionMapper;
@@ -33,7 +30,6 @@ class PermissionServiceTest {
     @BeforeEach
     void setUp() {
         service = new PermissionService(
-                userRoleMapper,
                 rolePermissionMapper,
                 permissionMapper,
                 roleInheritanceMapper);
